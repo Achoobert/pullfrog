@@ -11,6 +11,7 @@ import {
   CLI_UPGRADE_MESSAGE,
   CliContractError,
 } from "../cliContract.ts";
+import { vercelBypassSecretFor } from "../utils/vercelBypass.ts";
 
 export const PULLFROG_API_URL = (process.env.PULLFROG_API_URL || "https://pullfrog.com").replace(
   /\/+$/,
@@ -189,9 +190,8 @@ export async function pullfrogApi<T = Record<string, unknown>>(ctx: {
     authorization: `Bearer ${ctx.token}`,
     [CLI_CONTRACT_HEADER]: CLI_CONTRACT_VERSION,
   };
-  if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
-    headers["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  }
+  const bypassSecret = vercelBypassSecretFor(new URL(PULLFROG_API_URL));
+  if (bypassSecret) headers["x-vercel-protection-bypass"] = bypassSecret;
   if (ctx.body) headers["content-type"] = "application/json";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
