@@ -173,8 +173,12 @@ function buildCommonTools(ctx: ToolContext, outputSchema?: JsonSchema): Pullfrog
     RemoveLabelsTool(ctx),
     GitTool(ctx),
     GitFetchTool(ctx),
-    UploadFileTool(ctx),
   ];
+
+  // uploads are signed against the API token, which run-context issues only with OIDC
+  if (ctx.apiToken) {
+    tools.push(UploadFileTool(ctx));
+  }
 
   // cross-repo tools only surface on --xrepo runs (keeps the single-repo tool
   // list unchanged). list_repos + checkout_repo gate further on ctx.xrepo.
