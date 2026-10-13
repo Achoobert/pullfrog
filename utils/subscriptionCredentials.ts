@@ -58,3 +58,14 @@ export const selectedCredentialSchema = z.object({
 export function subscriptionLabel(input: { email: string | null; suffix: string }) {
   return input.email ?? `•••• ${input.suffix}`;
 }
+
+/** the provider's last verdict on a subscription, or null when it last worked. */
+export function subscriptionStatusText(subscription: Subscription): string | null {
+  if (subscription.status === "rejected") return "Rejected";
+  if (subscription.status !== "exhausted") return null;
+  if (!subscription.resetAt) return "Limit reached";
+  const resetAt = new Date(subscription.resetAt);
+  // a window that has reopened is usable again until a run says otherwise
+  if (resetAt.getTime() <= Date.now()) return null;
+  return `Limit reached · resets ${resetAt.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
+}

@@ -1,7 +1,12 @@
 import * as p from "@clack/prompts";
 import arg from "arg";
 import { z } from "zod";
-import { type SubscriptionName, subscriptionListSchema } from "../utils/subscriptionCredentials.ts";
+import {
+  type Subscription,
+  type SubscriptionName,
+  subscriptionListSchema,
+  subscriptionStatusText,
+} from "../utils/subscriptionCredentials.ts";
 import {
   type CliTarget,
   configurationApi,
@@ -11,27 +16,38 @@ import {
 } from "./_configuration.ts";
 import { handleCancel } from "./_shared.ts";
 
+/** what the user asked for before signing in: `replace` one of `current`, or add to them. */
+export interface SubscriptionChoice {
+  current: Subscription[];
+  replace: Subscription | undefined;
+}
+
+function replaceLabel(row: Subscription) {
+  const status = subscriptionStatusText(row);
+  return status ? `Replace ${row.label} (${status})` : `Replace ${row.label}`;
+}
+
 export async function chooseSubscription(input: {
   target: CliTarget;
   token: string;
   name: SubscriptionName;
-}) {
+}): Promise<SubscriptionChoice | null> {
   const result = subscriptionListSchema.parse(
     await configurationApi({ ...input, path: "subscriptions" })
   );
   const current = result.subscriptions.filter((row) => row.name === input.name && !row.inherited);
-  if (!current.length) return { replaceId: undefined };
+  if (!current.length) return { current, replace: undefined };
   const chosen = await p.select({
     message: "Add or replace a subscription?",
     options: [
       { value: "add", label: "Add another", hint: "keep existing subscriptions as fallbacks" },
-      ...current.map((row) => ({ value: row.id, label: `Replace ${row.label}` })),
+      ...current.map((row) => ({ value: row.id, label: replaceLabel(row) })),
       { value: "cancel", label: "Cancel" },
     ],
   });
   handleCancel(chosen);
   if (typeof chosen !== "string" || chosen === "cancel") return null;
-  return { replaceId: chosen === "add" ? undefined : chosen };
+  return { current, replace: current.find((row) => row.id === chosen) };
 }
 
 export async function saveSubscription(input: {
@@ -41,7 +57,7 @@ export async function saveSubscription(input: {
   value: string;
   replaceId: string | undefined;
 }) {
-  return z.object({ label: z.string(), reconnected: z.boolean() }).parse(
+  return z.object({ id: z.string(), label: z.string(), reconnected: z.boolean() }).parse(
     await configurationApi({
       target: input.target,
       token: input.token,
@@ -65,10 +81,10 @@ export async function manageSubscriptions(input: { command: string; args: string
     const result = subscriptionListSchema.parse(
       await configurationApi({ target, path: "subscriptions" })
     );
-    console.log("BINDING ID\tCREDENTIAL ID\tPROVIDER\tACCOUNT");
+    console.log("BINDING ID\tCREDENTIAL ID\tPROVIDER\tACCOUNT\tSTATUS");
     for (const item of result.subscriptions)
       console.log(
-        `${item.id}\t${item.credentialId}\t${item.name}\t${item.label}${item.inherited ? " (inherited)" : ""}`
+        `${item.id}\t${item.credentialId}\t${item.name}\t${item.label}${item.inherited ? " (inherited)" : ""}\t${subscriptionStatusText(item) ?? "-"}`
       );
     return;
   }
