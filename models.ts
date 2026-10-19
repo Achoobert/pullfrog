@@ -167,6 +167,7 @@ export const providers = {
         displayName: "Claude Haiku",
         resolve: "anthropic/claude-haiku-5-5",
         effort: ["low", "medium", "high", "xhigh", "max"],
+        openRouterEffort: ["none", "low", "medium", "high", "xhigh", "max"],
         openRouterResolve: "openrouter/anthropic/claude-haiku-5.5",
       },
     },
@@ -370,6 +371,7 @@ export const providers = {
         // models.dev gave the direct id V4.1-Flash's ladder on 2026-09-21, which
         // is what DeepSeek now serves under it — and the same as the Router pin's.
         effort: ["low", "high", "max"],
+        openRouterEffort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/deepseek/deepseek-v4-pro-0813",
         preferred: true,
       },
@@ -389,7 +391,7 @@ export const providers = {
         displayName: "DeepSeek Flash",
         resolve: "deepseek/deepseek-flash",
         effort: ["low", "high", "max"],
-        openRouterEffort: ["low", "high", "max"],
+        openRouterEffort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/deepseek/deepseek-v4.1-flash",
       },
       // legacy aliases — deepseek retires these on 2026-07-24; transparently
@@ -419,6 +421,7 @@ export const providers = {
         displayName: "Kimi K3",
         resolve: "moonshotai/kimi-k3",
         effort: ["low", "high", "max"],
+        openRouterEffort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/moonshotai/kimi-k3",
         preferred: true,
         subagentModel: "kimi-k2",
@@ -587,6 +590,7 @@ export const providers = {
         displayName: "Claude Haiku",
         resolve: "opencode/claude-haiku-5-5",
         effort: ["low", "medium", "high", "xhigh", "max"],
+        openRouterEffort: ["none", "low", "medium", "high", "xhigh", "max"],
         openRouterResolve: "openrouter/anthropic/claude-haiku-5.5",
       },
       "gpt-sol": {
@@ -684,7 +688,7 @@ export const providers = {
         resolve: "opencode/kimi-k3",
         // Zen publishes a single rung for K3 where OpenRouter publishes three.
         effort: ["max"],
-        openRouterEffort: ["low", "high", "max"],
+        openRouterEffort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/moonshotai/kimi-k3",
         subagentModel: "kimi-k2",
       },
@@ -781,6 +785,10 @@ export const providers = {
         // free to run, still gated on the provider's own OPENCODE_API_KEY —
         // see the big-pickle note above (#1077).
         isFree: true,
+        // Zen answers "Model muse-spark-1.3-contributor-free has been deprecated."
+        // since 2026-10-17 and has no free Muse Spark left; stored picks land on
+        // Big Pickle, as `exo` does, rather than on the paid `muse-spark`.
+        fallback: "opencode/big-pickle",
       },
       // Zen's FREE stealth preview (listed 2026-09-16), the big-pickle shape: an
       // anonymous vendor's model at $0 for a limited time. OpenRouter's listing:
@@ -810,6 +818,9 @@ export const providers = {
         // free to run, still gated on the provider's own OPENCODE_API_KEY —
         // see the big-pickle note above (#1077).
         isFree: true,
+        // Zen dropped the free id from `/v1/models` and models.dev deprecated it
+        // by 2026-10-19; stored picks land on Big Pickle, as `step-5-preview` does.
+        fallback: "opencode/big-pickle",
       },
       // Zen's FREE Meituan preview (listed 2026-09-25). Zen's docs: zero
       // retention, no training. Go lists the same free id, but one key reaches
@@ -863,6 +874,9 @@ export const providers = {
         // free to run, still gated on the provider's own OPENCODE_API_KEY —
         // see the big-pickle note above (#1077).
         isFree: true,
+        // Zen dropped the free id from `/v1/models` and models.dev deprecated it
+        // by 2026-10-15; stored picks land on Big Pickle, as `exo` does.
+        fallback: "opencode/big-pickle",
       },
       // Zen's live free MiMo, and the second free row in a menu that big-pickle
       // was alone in since `mimo-v2-pro-free` lost its model.
@@ -951,7 +965,7 @@ export const providers = {
         // Go publishes a single rung for K3 where the OpenRouter route
         // publishes three, so every position lands on `max` here.
         effort: ["max"],
-        openRouterEffort: ["low", "high", "max"],
+        openRouterEffort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/moonshotai/kimi-k3",
         subagentModel: "kimi-k2",
       },
@@ -1009,6 +1023,9 @@ export const providers = {
         displayName: "MiniMax M2",
         resolve: "opencode-go/minimax-m2.7",
         openRouterResolve: "openrouter/minimax/minimax-m2.7",
+        // models.dev deprecated Go's m2.7 by 2026-10-15 and Go lists no other
+        // M2; M3 is the same vendor at the same $0.30 input price.
+        fallback: "opencode-go/minimax-m3",
       },
       // Xiaomi — Go-only; Zen serves the free `mimo-v2-pro-free` promo instead.
       "mimo-pro": {
@@ -1150,7 +1167,7 @@ export const providers = {
         resolve: "openrouter/~anthropic/claude-haiku-latest",
         // the rolling alias moved to Haiku 5.5 on 2026-10-07, which publishes
         // the ladder Haiku 4.5 did not.
-        effort: ["low", "medium", "high", "xhigh", "max"],
+        effort: ["none", "low", "medium", "high", "xhigh", "max"],
         openRouterResolve: "openrouter/~anthropic/claude-haiku-latest",
       },
       // pinned to the explicit Sol/Terra/Luna tiers (not the ~openai/gpt-latest
@@ -1264,7 +1281,7 @@ export const providers = {
       "deepseek-pro": {
         displayName: "DeepSeek Pro",
         resolve: "openrouter/deepseek/deepseek-v4-pro-0813",
-        effort: ["low", "high", "max"],
+        effort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/deepseek/deepseek-v4-pro-0813",
       },
       // the V4.1 id, not the bare one — see `deepseek/deepseek-flash` for why
@@ -1273,7 +1290,7 @@ export const providers = {
       "deepseek-flash": {
         displayName: "DeepSeek Flash",
         resolve: "openrouter/deepseek/deepseek-v4.1-flash",
-        effort: ["low", "high", "max"],
+        effort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/deepseek/deepseek-v4.1-flash",
       },
       // legacy alias — deepseek retires this on 2026-07-24; transparently
@@ -1292,7 +1309,7 @@ export const providers = {
       "kimi-k3": {
         displayName: "Kimi K3",
         resolve: "openrouter/moonshotai/kimi-k3",
-        effort: ["low", "high", "max"],
+        effort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/moonshotai/kimi-k3",
       },
       // slug pins the m2 line for DB stability; resolve tracks the current m2.7.
@@ -1416,12 +1433,12 @@ export const providers = {
       "kimi-k3": {
         displayName: "Kimi K3",
         resolve: "vercel/moonshotai/kimi-k3",
-        effort: ["none", "low", "high", "max"],
+        effort: ["low", "high", "max"],
       },
       "muse-spark": {
         displayName: "Muse Spark",
         resolve: "vercel/meta/muse-spark-1.3",
-        effort: ["minimal", "low", "medium", "high", "xhigh"],
+        effort: ["minimal", "low", "medium", "high", "xhigh", "max"],
       },
       "mistral-large": {
         displayName: "Mistral Large",
