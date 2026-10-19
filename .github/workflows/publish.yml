@@ -12,8 +12,8 @@ on:
   # two jobs. `stage` puts the version in npm's staged queue. `finish` runs on the `release-approval`
   # environment, whose required reviewers are the npm maintainers: GitHub holds the run there, with no
   # runner, for up to 30 days. the npm approval is the gate; the environment approval only resumes the
-  # run, and `finish` checks the registry before it tags or releases anything. `stager approve` does
-  # both, approving on npm and then resuming the run.
+  # run, and `finish` checks the registry before it tags or releases anything. `stager`, run by the
+  # maintainer with one authenticator code, does both, approving on npm and then resuming the run.
   #
   # only `finish` can write a tag. the "Release tags" ruleset refuses tag creation, moves and deletions
   # to everyone, admins and workflow tokens included, except deploy keys; the one deploy key is the
@@ -162,7 +162,7 @@ jobs:
             echo "\`pullfrog@$VERSION\` is staged and is not installable until a maintainer approves it with 2FA. This run is now held on the \`release-approval\` environment, with no runner, for up to 30 days. No tag moves and no release is created until it resumes and npm serves the version."
             echo
             echo '```'
-            echo "stager approve 'pullfrog@$VERSION'   # approve on npm in the browser, then resume this run"
+            echo "stager   # in your own terminal: a, Enter, then one authenticator code approves it and resumes this run"
             echo "stager reject 'pullfrog@$VERSION'    # drop the staged version and fail this run"
             echo '```'
             echo
@@ -210,7 +210,7 @@ jobs:
             fi
             sleep 60
           done
-          echo "::error::npm never served $VERSION in 340min; refusing to tag. approve it with 2FA (stager approve 'pullfrog@$VERSION'), then re-run this job"
+          echo "::error::npm never served $VERSION in 340min; refusing to tag. approve it by running stager in a terminal, then re-run this job"
           exit 1
 
       - name: Checkout code
