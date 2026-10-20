@@ -1424,7 +1424,7 @@ export const providers = {
       // this entry sat on the preview until V4.1.
       "deepseek-flash": {
         displayName: "DeepSeek Flash",
-        resolve: "vercel/deepseek/deepseek-v4.1-flash",
+        resolve: "vercel/deepseek/deepseek-v4.1-flash-1017",
         effort: ["none", "low", "high", "max"],
       },
       glm: {
