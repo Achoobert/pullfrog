@@ -83,17 +83,17 @@ describe("deriveSubagentModels", () => {
     // cross-file bugs the v4 e2e test surfaced); Pro is cost-effective enough
     // to keep on for lenses too. Google has no in-between tier.
     it("direct google pro inherits", () => {
-      expect(deriveSubagentModels("google/gemini-3.1-pro-preview")).toEqual({
+      expect(deriveSubagentModels("google/gemini-4-argon")).toEqual({
         reviewer: undefined,
       });
     });
     it("opencode-vendored gemini-pro inherits", () => {
-      expect(deriveSubagentModels("opencode/gemini-3.1-pro")).toEqual({
+      expect(deriveSubagentModels("opencode/gemini-4-argon")).toEqual({
         reviewer: undefined,
       });
     });
     it("openrouter gemini-pro inherits", () => {
-      expect(deriveSubagentModels("openrouter/google/gemini-3.1-pro-preview")).toEqual({
+      expect(deriveSubagentModels("openrouter/google/gemini-4-argon")).toEqual({
         reviewer: undefined,
       });
     });

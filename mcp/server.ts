@@ -103,7 +103,7 @@ export interface ToolContext {
   // runtime context for existing consumers and observability.
   oss: boolean;
   plan: AccountPlan;
-  // resolved upstream model specifier (e.g. "google/gemini-3.1-pro-preview").
+  // resolved upstream model specifier (e.g. "google/gemini-4-argon").
   // undefined when payload.proxyModel is set or when the alias is unresolvable.
   // used by the schema sanitizer to detect Gemini-routed traffic.
   resolvedModel: string | undefined;

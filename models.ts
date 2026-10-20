@@ -284,9 +284,9 @@ export const providers = {
     models: {
       "gemini-pro": {
         displayName: "Gemini Pro",
-        resolve: "google/gemini-3.1-pro-preview",
+        resolve: "google/gemini-4-argon",
         effort: ["low", "medium", "high"],
-        openRouterResolve: "openrouter/google/gemini-3.1-pro-preview",
+        openRouterResolve: "openrouter/google/gemini-4-argon",
         preferred: true,
         // Inherit (subagents stay on Pro). Google has no in-between tier;
         // dropping to Flash for review work was a meaningful capability cliff
@@ -499,8 +499,9 @@ export const providers = {
         displayName: "Kimi K2",
         description: "Included in every Kimi membership tier",
         resolve: "kimi-code-plan-cn/kimi-for-coding",
-        // models.dev published this ladder on 2026-09-14; the catalog gate
-        // mirrors it, so main was red until the alias carried it too.
+        // models.dev published `low, high, max` on 2026-09-14 and added `none`
+        // on 2026-10-19; the catalog gate mirrors it, so main was red until the
+        // alias carried it too.
         effort: ["none", "low", "high", "max"],
       },
       "kimi-k2-highspeed": {
@@ -671,9 +672,9 @@ export const providers = {
       },
       "gemini-pro": {
         displayName: "Gemini Pro",
-        resolve: "opencode/gemini-3.1-pro",
+        resolve: "opencode/gemini-4-argon",
         effort: ["low", "medium", "high"],
-        openRouterResolve: "openrouter/google/gemini-3.1-pro-preview",
+        openRouterResolve: "openrouter/google/gemini-4-argon",
         // Inherit — see google/gemini-pro for rationale.
       },
       "gemini-flash": {
@@ -1405,8 +1406,8 @@ export const providers = {
       },
       "gemini-pro": {
         displayName: "Gemini Pro",
-        resolve: "vercel/google/gemini-3.1-pro-preview",
-        effort: ["low", "high"],
+        resolve: "vercel/google/gemini-4-argon",
+        effort: ["low", "medium", "high"],
       },
       "gemini-flash": {
         displayName: "Gemini Flash",
