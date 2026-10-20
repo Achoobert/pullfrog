@@ -13,16 +13,15 @@
  *   (e.g. Gemini schema sanitizer, OpenAI tool-call format). flagship slugs
  *   live in `providers.ts`.
  *
- * Every keyed alias is smoked — including `openrouter/*` and keyed `opencode/*`
- * passthroughs. They look like routing-layer wrappers but each one is a
- * distinct catalog entry on models.dev (under the `openrouter` / `opencode`
- * provider sections) that can drift independently of the upstream provider
- * mirror — testing the direct google entry tells you nothing about whether
- * the openrouter mirror has the same model id. Two kinds of entry are pruned:
- * routing slugs (bedrock/byok) whose `resolve` is a sentinel that picks the
- * actual model id from a per-run env var, and whatever `isExcluded` rejects —
- * a provider CI holds no key for, or a metered model on one we decline to pay
- * for.
+ * Every keyed alias on a direct route is smoked. A mirrored id can drift from
+ * its upstream (testing the direct google entry says nothing about whether the
+ * openrouter mirror has the same model id), but `test:catalog` checks each
+ * mirrored id against the route's own published list with no LLM call, so a
+ * `flagshipOnly` mirror (`openrouter/*`, `vercel/*`) is smoked through its
+ * flagship alone. Also pruned: routing slugs (bedrock/byok) whose `resolve` is
+ * a sentinel that picks the actual model id from a per-run env var, and
+ * whatever `isExcluded` rejects — a provider CI holds no key for, or a metered
+ * model on one we decline to pay for.
  *
  * usage:
  *   node action/test/list-aliases.ts
@@ -59,6 +58,9 @@ const uncredentialedProviders = new Set(
 /** providers whose metered models CI declines to pay for — see `ciCostExcluded`. */
 const costExcludedProviders = new Set(providers.filter((p) => p.ciCostExcluded).map((p) => p.name));
 
+/** mirror routes smoked through their flagship alone — see `flagshipOnly`. */
+const flagshipOnlyProviders = new Set(providers.filter((p) => p.flagshipOnly).map((p) => p.name));
+
 /**
  * A cost exclusion spares the provider's free models: they bill nothing, they
  * keep working after the balance runs dry (all 4 free Zen aliases passed the
@@ -79,7 +81,7 @@ export function buildAliasMatrix(): MatrixEntry[] {
       if (alias.routing) return false;
       // no key in CI, or a metered model on a provider we decline to pay for.
       if (isExcluded(alias)) return false;
-      return true;
+      return !flagshipOnlyProviders.has(alias.provider) || alias.isFree;
     })
     .map(toMatrixEntry);
 }

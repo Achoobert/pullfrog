@@ -42,6 +42,14 @@ export type ProviderEntry = {
    * to arm the cells again — the rest of the entry stays correct.
    */
   ciCostExcluded?: true;
+  /**
+   * A mirror route: `providers-live` keeps its flagship cell, the one check that the
+   * harness talks to this route at all, and `models-live` emits no cell for its metered
+   * aliases. Each alias on a mirror goes through the same harness path, and
+   * `test:catalog` already checks every mirrored id against the route's own published
+   * list with no LLM call, so a per-alias smoke there repeats the flagship.
+   */
+  flagshipOnly?: true;
 };
 
 export const providers: ProviderEntry[] = [
@@ -104,6 +112,7 @@ export const providers: ProviderEntry[] = [
     name: "vercel",
     flagship: "vercel/claude-sonnet",
     agent: "opencode",
+    flagshipOnly: true,
   },
   {
     // Zen is the largest model spend in CI: 39 metered alias cells, more than
@@ -119,6 +128,7 @@ export const providers: ProviderEntry[] = [
     name: "openrouter",
     flagship: "openrouter/claude-sonnet",
     agent: "opencode",
+    flagshipOnly: true,
   },
   {
     // the Go endpoint is a different base URL on the SAME `OPENCODE_API_KEY`

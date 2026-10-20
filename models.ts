@@ -476,7 +476,7 @@ export const providers = {
         displayName: "Kimi K3",
         description: "1M context, but only on Allegretto and above · Moderato caps it at 256K",
         resolve: "kimi-code-plan-cn/k3",
-        effort: ["low", "high", "max"],
+        effort: ["none", "low", "high", "max"],
         subagentModel: "kimi-k2",
       },
       // `preferred` sits on the 256K variant rather than the 1M flagship, which
@@ -491,7 +491,7 @@ export const providers = {
         displayName: "Kimi K3 256K",
         description: "Same model at 256K for ~half the quota · Moderato or above",
         resolve: "kimi-code-plan-cn/k3-256k",
-        effort: ["low", "high", "max"],
+        effort: ["none", "low", "high", "max"],
         preferred: true,
         subagentModel: "kimi-k2",
       },
@@ -501,7 +501,7 @@ export const providers = {
         resolve: "kimi-code-plan-cn/kimi-for-coding",
         // models.dev published this ladder on 2026-09-14; the catalog gate
         // mirrors it, so main was red until the alias carried it too.
-        effort: ["low", "high", "max"],
+        effort: ["none", "low", "high", "max"],
       },
       "kimi-k2-highspeed": {
         displayName: "Kimi K2 HighSpeed",
