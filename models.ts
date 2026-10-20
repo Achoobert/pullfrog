@@ -323,8 +323,9 @@ export const providers = {
       "grok-4.3": {
         displayName: "Grok 4.3",
         resolve: "xai/grok-4.3",
-        effort: ["none", "low", "medium", "high"],
+        effort: ["none", "low", "medium", "high", "xhigh"],
         openRouterResolve: "openrouter/x-ai/grok-4.3",
+        openRouterEffort: ["none", "low", "medium", "high"],
       },
       // legacy aliases — xAI retired the entire fast/code-fast line on
       // 2026-05-15 (https://docs.x.ai/developers/migration/may-15-deprecation)

@@ -1,9 +1,12 @@
 import { type } from "arktype";
+import { formatMcpToolRef } from "../external.ts";
 import { primaryRepoState } from "../toolState.ts";
 import { getApiUrl } from "../utils/apiUrl.ts";
 import { buildPullfrogFooter, stripExistingFooter } from "../utils/buildPullfrogFooter.ts";
 import { log } from "../utils/cli.ts";
 import { fixDoubleEscapedString } from "../utils/fixDoubleEscapedString.ts";
+import { isPullfrog } from "../utils/isPullfrog.ts";
+import { countOutstandingPullfrogThreads } from "../utils/outstandingThreads.ts";
 import { patchWorkflowRunFields } from "../utils/patchWorkflowRunFields.ts";
 import {
   createLeapingProgressComment,
@@ -405,6 +408,32 @@ export async function reportProgress(
   };
 }
 
+/**
+ * whether skipping the review would strand the PR unapproved: Pullfrog holds no approval (a push
+ * dismissed it under "dismiss stale approvals", or none followed a non-approving review) and no
+ * Pullfrog finding is open. a no-review exit only carries the prior verdict forward, so here it
+ * leaves the PR blocked until someone asks for an approval by hand.
+ */
+async function isAwaitingApproval(ctx: ToolContext): Promise<boolean> {
+  const pullNumber = ctx.payload.event.issue_number;
+  if (!ctx.prApproveEnabled || typeof pullNumber !== "number") return false;
+  const target = { owner: ctx.repo.owner, repo: ctx.repo.name, pull_number: pullNumber };
+  const pr = await ctx.octokit.rest.pulls.get(target);
+  // GitHub blocks approving your own PR, so a Pullfrog-authored one can never hold an approval.
+  if (pr.data.state !== "open" || isPullfrog(pr.data.user?.login)) return false;
+  const reviews = await ctx.octokit.paginate(ctx.octokit.rest.pulls.listReviews, {
+    ...target,
+    per_page: 100,
+  });
+  // a reviewer's standing verdict is their latest review that is not a comment.
+  const standing = reviews.findLast(
+    (review) =>
+      isPullfrog(review.user?.login) && review.state !== "COMMENTED" && review.state !== "PENDING"
+  );
+  if (standing?.state === "APPROVED") return false;
+  return (await countOutstandingPullfrogThreads(ctx, pullNumber)) === 0;
+}
+
 export function ReportProgressTool(ctx: ToolContext) {
   return tool({
     name: "report_progress",
@@ -416,6 +445,12 @@ export function ReportProgressTool(ctx: ToolContext) {
     parameters: ReportProgress,
     execute: execute(async (params) => {
       if (params.no_review_needed) {
+        if (await isAwaitingApproval(ctx)) {
+          throw new Error(
+            "no_review_needed refused: Pullfrog holds no approval on this PR (a push dismissed it, or no review has approved it) and none of its findings is open, so skipping the review leaves the PR unapproved. " +
+              `submit \`${formatMcpToolRef(ctx.agentId, "create_pull_request_review")}\` instead: approve unless an earlier Pullfrog concern, inline or in a review body, still stands, and otherwise name it in a non-approving review.`
+          );
+        }
         ctx.toolState.noReviewNeededSha = primaryRepoState(ctx.toolState).checkoutSha;
       }
       // a standalone comment already delivered this run's answer to its own
