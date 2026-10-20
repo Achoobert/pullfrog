@@ -81,6 +81,7 @@ export {
   rungLabel,
   rungPosition,
   SUBSIDY_RUNG,
+  TRIAL_FUNDED_USD_LIMIT,
 } from "../external.ts";
 export type { Mode } from "../modes.ts";
 export { modes } from "../modes.ts";
@@ -104,10 +105,12 @@ export {
 } from "../utils/codexOAuth.ts";
 export type { CredentialVerdict } from "../utils/credentialCheck.ts";
 export { isCredentialProbeable, verifyCredential } from "../utils/credentialCheck.ts";
+export { renderFailure } from "../utils/failureBody.ts";
 export type { ResourceUsage, UsageSummary } from "../utils/github.ts";
 export { isPullfrog } from "../utils/isPullfrog.ts";
 export {
   isLeapingIntoActionCommentBody,
+  isLiveChecklistCommentBody,
   LEAPING_INTO_ACTION_PREFIX,
 } from "../utils/leapingComment.ts";
 export { MAX_LEARNINGS_LENGTH, truncateAtLineBoundary } from "../utils/learningsTruncate.ts";

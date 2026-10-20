@@ -20,10 +20,10 @@ describe("renderRunError BYOK provider billing exhausted (#835)", () => {
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.summary).toContain("`deepseek` account is out of credit");
+    expect(result.summary).toContain("Your DeepSeek account is out of credit");
     expect(result.summary).toContain("https://platform.deepseek.com/top_up");
     expect(result.summary).toContain("### ❌ Pullfrog failed");
-    expect(result.comment).toContain("`deepseek` account is out of credit");
+    expect(result.comment).toContain("Your DeepSeek account is out of credit");
     expect(result.comment).not.toContain("### ❌ Pullfrog failed");
   });
 
@@ -54,9 +54,8 @@ describe("renderRunError BYOK provider billing exhausted (#835)", () => {
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.comment).toContain("Your provider account is out of credit");
-    expect(result.comment).not.toContain("Your your");
-    expect(result.comment).toContain("Top up your provider account");
+    expect(result.comment).toContain("Your model provider account is out of credit");
+    expect(result.comment).not.toContain("[Top up");
   });
 });
 
@@ -74,10 +73,9 @@ describe("renderRunError ProviderModelNotFoundError (#816)", () => {
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.summary).toContain("not in OpenCode's catalog");
-    expect(result.summary).toContain("`acme/widget`");
-    expect(result.summary).toContain("retired-free-model");
-    expect(result.comment).toBe(result.summary);
+    expect(result.comment).toContain("isn't in OpenCode's catalog");
+    expect(result.comment).toContain("retired-free-model");
+    expect(result.summary).toBe(`### ❌ Pullfrog failed\n\n${result.comment}`);
   });
 
   it("renders the same classifier when big-pickle is missing from opencode catalog", () => {
@@ -87,7 +85,7 @@ describe("renderRunError ProviderModelNotFoundError (#816)", () => {
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.summary).toContain("not in OpenCode's catalog");
+    expect(result.summary).toContain("isn't in OpenCode's catalog");
     expect(result.summary).toContain("big-pickle");
   });
 
@@ -98,7 +96,7 @@ describe("renderRunError ProviderModelNotFoundError (#816)", () => {
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.summary).not.toContain("not in OpenCode's catalog");
+    expect(result.summary).not.toContain("isn't in OpenCode's catalog");
   });
 
   // #1470 — opencode ≥1.18 publishes only the session.error wording
@@ -110,9 +108,9 @@ describe("renderRunError ProviderModelNotFoundError (#816)", () => {
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.comment).toContain("not in OpenCode's catalog");
+    expect(result.comment).toContain("`deepseek/deepseek-v4-flash` isn't in OpenCode's catalog");
     expect(result.comment).toContain("`PULLFROG_MODEL`");
-    expect(result.comment).toContain("Did you mean: deepseek-flash, deepseek-v4-pro?");
+    expect(result.comment).toContain("OpenCode suggests `deepseek-flash` or `deepseek-v4-pro`.");
   });
 });
 
@@ -194,17 +192,18 @@ describe("renderRunError credential pool refusal (#1473)", () => {
         routerActive: false,
       });
       expect(result.comment).toBe(body);
-      expect(result.summary).toBe(body);
+      expect(result.summary).toBe(`### ❌ Pullfrog failed\n\n${body}`);
       expect(body).toContain(credential.verdict.detail);
     }
   );
 
   it("gives each verdict the remedy its credential kind calls for", () => {
     const body = build(variants);
-    expect(body).toContain("it resets at **2026-10-06 14:00 UTC**");
+    expect(body).toContain("which resets at **2026-10-06 14:00 UTC**");
     expect(body).toContain("`pullfrog auth codex`");
     expect(body).toContain("https://platform.openai.com/api-keys");
-    expect(body).toContain("[Update it in Pullfrog →](");
+    expect(body).toContain("update it in [Pullfrog](");
+    expect(body).toContain("doesn't allow subscription sign-in for Claude Code");
     expect(body).toContain("https://platform.openai.com/settings/organization/billing/overview");
     expect(body.split("\n").filter((line) => line.startsWith("- "))).toHaveLength(variants.length);
   });
@@ -228,7 +227,7 @@ describe("renderRunError provider-stated refusals (#1474)", () => {
       "Upstream request failed: An active OpenCode Go subscription is required to use Go models.",
       "The model provider returned an error",
     ],
-    ["The usage limit has been reached", "usage limit for this account has been reached"],
+    ["The usage limit has been reached", "Your model provider account has hit its usage limit"],
     // routes against Pullfrog's own OpenRouter balance on a Router run, so it gets no top-up copy
     [
       "This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.",
@@ -236,15 +235,15 @@ describe("renderRunError provider-stated refusals (#1474)", () => {
     ],
     [
       "Upstream request failed: Insufficient account funds",
-      "Your provider account is out of credit",
+      "Your model provider account is out of credit",
     ],
     [
       "Encountered invalidated oauth token for user, failing request",
-      "OAuth credential has expired",
+      "Your provider sign-in has expired or been revoked",
     ],
     [
       "You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.",
-      "`openai` account is out of credit",
+      "Your OpenAI account is out of credit",
     ],
     // claude.ts / codex.ts put our classifier label, not the provider's wording, after the prefix
     ["auth error (401)", "The model provider returned an error"],
@@ -260,14 +259,14 @@ describe("renderRunError provider-stated refusals (#1474)", () => {
     expect(result.summary).toContain(result.comment);
   });
 
-  it("still collapses an unknown internal error to the one-line comment", () => {
+  it("shows an unknown internal error as-is rather than collapsing it", () => {
     const result = renderRunError({
       errorMessage: "opencode prompt failed: fetch failed",
       repo,
       agentDiagnostic: undefined,
       routerActive: false,
     });
-    expect(result.comment.startsWith("**Run failed.**")).toBe(true);
-    expect(result.summary).toContain("opencode prompt failed: fetch failed");
+    expect(result.comment.startsWith("**An unrecognized error occurred.**")).toBe(true);
+    expect(result.comment).toContain("opencode prompt failed: fetch failed");
   });
 });

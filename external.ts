@@ -147,6 +147,7 @@ export {
   resolvePickModel,
   resolveRoutedModel,
   routerProxyOptOut,
+  TRIAL_FUNDED_USD_LIMIT,
 } from "./models.ts";
 
 // tool permission types shared with server dispatch

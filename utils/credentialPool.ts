@@ -11,7 +11,11 @@ import {
 } from "../models.ts";
 import { resolveAgent } from "./agent.ts";
 import { apiFetch } from "./apiFetch.ts";
-import { buildCredentialPoolRefusedError, type RefusedCredential } from "./apiKeys.ts";
+import {
+  buildCredentialPoolRefusedError,
+  buildSecretsUnavailableError,
+  type RefusedCredential,
+} from "./apiKeys.ts";
 import { log } from "./cli.ts";
 import {
   canInstallSubscription,
@@ -55,10 +59,7 @@ const select = yes.mutation({
       signal: ctx.signal,
     });
     if (response.status === 404) return null;
-    if (!response.ok)
-      throw new Error("could not load a configured credential; no fallback was charged", {
-        cause: response.status,
-      });
+    if (!response.ok) throw new Error(buildSecretsUnavailableError(), { cause: response.status });
     return selectedCredentialSchema.parse(await response.json());
   },
   retry: (error, attempt) =>

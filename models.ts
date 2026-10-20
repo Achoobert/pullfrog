@@ -1946,6 +1946,20 @@ if (!defaultProxyAlias?.openRouterResolve) {
 export const DEFAULT_PROXY_MODEL = defaultProxyAlias.openRouterResolve;
 const defaultProxyDisplayName = defaultProxyAlias.displayName;
 
+/**
+ * what a Pullfrog-funded trial run falls back to. apart from `DEFAULT_PROXY_MODEL` because the
+ * trial is capped at `TRIAL_FUNDED_USD_LIMIT` per account, so first-impression quality outranks price.
+ * see wiki/trial-model-fallback.md.
+ */
+const trialProxyAlias = resolveDisplayAlias("openai/gpt-luna");
+if (!trialProxyAlias?.openRouterResolve) {
+  throw new Error("TRIAL_PROXY_MODEL: openai/gpt-luna has no openRouterResolve");
+}
+export const TRIAL_PROXY_MODEL = trialProxyAlias.openRouterResolve;
+export const TRIAL_PROXY_DISPLAY_NAME = trialProxyAlias.displayName;
+/** lifetime cap, in USD, on the model usage Pullfrog funds for an account's trial runs. */
+export const TRIAL_FUNDED_USD_LIMIT = 10;
+
 // every router ladder rung must be a live alias, for the same reason the proxy default is checked —
 // and the rungs must reach two models, or the ladder routes nothing (a cheap rung whose alias
 // falls back to the top rung passed the first check while every tier ran the same model)

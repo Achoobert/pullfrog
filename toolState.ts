@@ -1,6 +1,7 @@
 import type { AgentCredential, AgentUsage } from "./agents/shared.ts";
 import type { PrepResult } from "./prep/types.ts";
 import type { AgentDiagnostic } from "./utils/agentHangReport.ts";
+import type { ModelClamp } from "./utils/buildPullfrogFooter.ts";
 import { log } from "./utils/cli.ts";
 import type { DiffCoverageState } from "./utils/diffCoverage.ts";
 import {
@@ -257,7 +258,7 @@ export interface ToolState {
   // the card gate ("card") from a pick that has no openRouterResolve yet and
   // no stored provider key ("noRouterPath", a model OpenRouter doesn't serve
   // yet).
-  modelClamped?: { from: string; reason: "card" | "noRouterPath" | "oss" | "trial" } | undefined;
+  modelClamped?: ModelClamp | undefined;
   // true when the run's model costs are covered by the Pullfrog for OSS
   // program. carried into footers (incl. error comments built from toolState
   // alone) so the "via Pullfrog for OSS" attribution is consistent everywhere.

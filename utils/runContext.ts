@@ -126,6 +126,9 @@ export interface RunContext {
    * run — the runner may mint a subsidized efficient-tier key if, and only if,
    * its own key search comes up dry. see the run-context route. */
   trialFallback?: boolean | undefined;
+  /** the trial account's remaining funded credits, in USD, when it is inside its
+   * trial at all. zero or below means the credits are used up. */
+  trialCreditsLeftUsd?: number | undefined;
 }
 
 const defaultSettings: RepoSettings = {
@@ -250,6 +253,7 @@ export async function fetchRunContext(params: {
       secretsUnavailable?: boolean;
       routerUnfunded?: boolean;
       trialFallback?: boolean;
+      trialCreditsLeftUsd?: number;
     } | null;
 
     if (data === null) {
@@ -279,6 +283,7 @@ export async function fetchRunContext(params: {
       secretsUnavailable: data.secretsUnavailable,
       routerUnfunded: data.routerUnfunded,
       trialFallback: data.trialFallback,
+      trialCreditsLeftUsd: data.trialCreditsLeftUsd,
     };
   } catch {
     // network drop, abort at the 30s timeout, or an unparseable body — we never

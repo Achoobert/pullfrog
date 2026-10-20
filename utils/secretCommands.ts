@@ -16,8 +16,26 @@ import { isGitHubActions } from "./globals.ts";
  * (the agent's own `result` text) stays ungated, because the test harness reads
  * it back through `GITHUB_OUTPUT` on a host with no runner.
  */
+const masked = new Set<string>();
+
 export function maskSecret(value: string): void {
+  masked.add(value);
   if (isGitHubActions) core.setSecret(value);
+}
+
+/**
+ * Every value `maskSecret` registered, replaced in `text` as the runner would in
+ * a log: whole, then line by line. Parts under 8 characters are skipped, or the
+ * `{` and `}` lines of a JSON key would blank every brace in the comment.
+ */
+export function redactSecrets(text: string): string {
+  let redacted = text;
+  for (const value of masked) {
+    for (const part of [value, ...value.split("\n").map((line) => line.trim())]) {
+      if (part.length >= 8) redacted = redacted.replaceAll(part, "***");
+    }
+  }
+  return redacted;
 }
 
 /** @see maskSecret — same gate, for state the `post:` hook reads back. */

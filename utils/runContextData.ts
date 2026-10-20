@@ -34,6 +34,8 @@ export interface RunContextData {
    * own key search comes up dry. a permission, not a routing decision — the
    * server cannot see workflow `env:` keys. see `RunContext.trialFallback`. */
   trialFallback?: boolean | undefined;
+  /** see `RunContext.trialCreditsLeftUsd`. */
+  trialCreditsLeftUsd?: number | undefined;
 }
 
 interface ResolveRunContextDataParams {
@@ -125,5 +127,6 @@ export async function resolveRunContextData(
       (!!process.env.ACTIONS_ID_TOKEN_REQUEST_URL && oidcToken === undefined),
     routerUnfunded: runContext.routerUnfunded,
     trialFallback: runContext.trialFallback,
+    trialCreditsLeftUsd: runContext.trialCreditsLeftUsd,
   };
 }

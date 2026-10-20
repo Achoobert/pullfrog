@@ -22,6 +22,7 @@ import {
 import { resolveAgent, resolveModel } from "./utils/agent.ts";
 import {
   buildRejectedCredentialError,
+  buildTrialSpentError,
   NoUsableCredentialError,
   validateAgentApiKey,
 } from "./utils/apiKeys.ts";
@@ -562,11 +563,19 @@ export async function main(): Promise<MainResult> {
             ? await resolveTrialFallback({
                 payload,
                 configuredModel: effectiveModel,
+                creditsLeftUsd: runContext.trialCreditsLeftUsd,
                 oidcCredentials,
                 repo: runContext.repo,
                 toolState,
               })
             : false;
+        // a trial whose credits are spent would otherwise read "add an API key" with no
+        // word that the free credits it had been running on are gone.
+        const trialSpent =
+          runContext.trialCreditsLeftUsd !== undefined && runContext.trialCreditsLeftUsd <= 0;
+        if (!funded && trialSpent && missingKey instanceof NoUsableCredentialError) {
+          throw new Error(buildTrialSpentError({ owner: runContext.repo.owner }));
+        }
         if (!funded) throw missingKey;
         // the run is now Router-served, and only opencode speaks that provider —
         // the harness picked above was chosen for a credential that does not
@@ -1044,6 +1053,9 @@ export async function main(): Promise<MainResult> {
       repo: runContext.repo,
       agentDiagnostic: toolState.agentDiagnostic,
       routerActive: !!payload.proxyModel,
+      model: toolState.model,
+      credential: toolState.credential,
+      trial: toolState.modelClamped?.reason === "trial",
     });
     await writeRunErrorOutputs({ rendered, toolState });
 

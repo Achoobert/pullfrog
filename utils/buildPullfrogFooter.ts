@@ -1,8 +1,25 @@
-import { isAutoTier, modelAliases, modelIdLabel, resolveDisplayAlias } from "../models.ts";
+import {
+  isAutoTier,
+  modelAliases,
+  modelIdLabel,
+  resolveDisplayAlias,
+  TRIAL_FUNDED_USD_LIMIT,
+  TRIAL_PROXY_DISPLAY_NAME,
+} from "../models.ts";
 
 export const PULLFROG_DIVIDER = "<!-- PULLFROG_DIVIDER_DO_NOT_REMOVE_PLZ -->";
 
 const FROG_LOGO = `<a href="https://pullfrog.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://pullfrog.com/logos/frog-white-full-18px.png"><img src="https://pullfrog.com/logos/frog-green-full-18px.png" width="9px" height="9px" style="vertical-align: middle; " alt="Pullfrog"></picture></a>`;
+
+/**
+ * A run whose configured model was swapped for one Pullfrog could fund. `trial`
+ * carries the account's remaining trial credits, as run-context counted them
+ * when the run started, so the disclosure can say how much is left; undefined
+ * when the server predates the figure.
+ */
+export type ModelClamp =
+  | { from: string; reason: "card" | "noRouterPath" | "oss" }
+  | { from: string; reason: "trial"; creditsLeftUsd: number | undefined };
 
 export interface WorkflowRunFooterInfo {
   owner: string;
@@ -33,7 +50,7 @@ export interface BuildPullfrogFooterParams {
    * provider-key nudge — so the downgrade is visible rather than silently
    * presenting Kimi as the pick.
    */
-  clamped?: { from: string; reason: "card" | "noRouterPath" | "oss" | "trial" } | undefined;
+  clamped?: ModelClamp | undefined;
   /**
    * true when the run used the default proxy model only because no model was
    * selected (Router billing + "auto"). the footer appends a note nudging the
@@ -50,11 +67,13 @@ export interface BuildPullfrogFooterParams {
   /** repo owner, used to deep-link the trial disclosure at that account's own
    * console rather than the generic landing page. */
   owner?: string | undefined;
+  /** a failure comment: no 𝕏 link, model nudge or trial disclosure under an error. */
+  failed?: boolean | undefined;
 }
 
 function formatModelLabel(params: {
   model: string;
-  clamped?: { from: string; reason: "card" | "noRouterPath" | "oss" | "trial" } | undefined;
+  clamped?: ModelClamp | undefined;
   unselectedProxyDefault?: boolean | undefined;
   oss?: boolean | undefined;
 }): string {
@@ -92,7 +111,7 @@ function formatModelLabel(params: {
     // short form only: the IMPORTANT call-out above the footer already explains
     // what the trial is and how to leave it. repeating it here would say the
     // same thing twice in one comment.
-    return `${base} (model usage covered by Pullfrog)`;
+    return `${base} (free trial credits)`;
   }
   if (params.clamped) {
     // name the tier (not its backing model) when the user picked a tier, so the
@@ -126,25 +145,31 @@ function formatModelLabel(params: {
  * render as a line across the middle of the alert instead of a separator above it.
  *
  * The copy names the RUN rather than a review, because one footer builder feeds
- * four surfaces — a review, a plan or issue comment, a created PR body, and a
- * terminal failure comment — and only the first of those is a review at all.
+ * three surfaces — a review, a plan or issue comment, and a created PR body —
+ * and only the first of those is a review at all. A failure comment omits it.
  */
-function buildTrialDisclosure(owner: string | undefined): string {
+function buildTrialDisclosure(params: {
+  owner: string | undefined;
+  creditsLeftUsd: number | undefined;
+}): string {
   // a literal rather than `getApiUrl()`: this module is re-exported through
   // `action/internal/index.ts` into CLIENT components, and `apiUrl.ts` reaches
   // `@actions/core` through `cli.ts` — importing it here pulls node builtins
   // into the browser bundle and fails the Turbopack build. every other link in
   // this footer is already an absolute pullfrog.com URL for the same reason.
-  const consoleUrl = owner
-    ? `https://pullfrog.com/console/${owner}`
+  const consoleUrl = params.owner
+    ? `https://pullfrog.com/console/${params.owner}#billing`
     : "https://pullfrog.com/console";
+  const left =
+    params.creditsLeftUsd === undefined
+      ? ""
+      : ` ($${Math.max(0, params.creditsLeftUsd).toFixed(2)} of $${TRIAL_FUNDED_USD_LIMIT} left)`;
   return [
     "---",
     "",
     "> [!IMPORTANT]",
-    "> **Pullfrog covered this run's model usage.** `DeepSeek Flash` is fast and cheap — expect lighter " +
-      "work than a frontier model. This model allowance is temporary and separate from your Pullfrog plan. " +
-      `[Connect a model-provider subscription or API key →](${consoleUrl})`,
+    `> **This run used your free trial credits**${left} on \`${TRIAL_PROXY_DISPLAY_NAME}\`, a fast, lightweight model. ` +
+      `[Connect a provider →](${consoleUrl}) to run the model you choose.`,
   ].join("\n");
 }
 
@@ -177,16 +202,18 @@ export function buildPullfrogFooter(params: BuildPullfrogFooterParams): string {
       `Using ${formatModelLabel({
         model: params.model,
         clamped: params.clamped,
-        unselectedProxyDefault: params.unselectedProxyDefault,
+        unselectedProxyDefault: params.unselectedProxyDefault && !params.failed,
         oss: params.oss,
       })}`
     );
   }
 
-  const allParts = [...parts, "[𝕏](https://x.com/pullfrogai)"];
+  const allParts = params.failed ? parts : [...parts, "[𝕏](https://x.com/pullfrogai)"];
 
   const disclosure =
-    params.clamped?.reason === "trial" ? `${buildTrialDisclosure(params.owner)}\n\n` : "";
+    params.clamped?.reason === "trial" && !params.failed
+      ? `${buildTrialDisclosure({ owner: params.owner, creditsLeftUsd: params.clamped.creditsLeftUsd })}\n\n`
+      : "";
 
   return `\n\n${PULLFROG_DIVIDER}\n${disclosure}<sup>${FROG_LOGO}&nbsp;&nbsp;｜ ${allParts.join(" ｜ ")}</sup>`;
 }

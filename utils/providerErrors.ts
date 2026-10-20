@@ -62,6 +62,8 @@ const PROVIDER_ERROR_PATTERNS: ProviderErrorPattern[] = [
   },
   // OpenAI's `You have no credits remaining` (#1474).
   { regex: /no credits remaining/i, label: PROVIDER_BILLING_EXHAUSTED_LABEL },
+  // Codex on a ChatGPT workspace: `Your workspace is out of credits. Add credits to continue.`
+  { regex: /workspace is out of credits/i, label: PROVIDER_BILLING_EXHAUSTED_LABEL },
   { regex: /credit balance is too low/i, label: PROVIDER_BILLING_EXHAUSTED_LABEL },
   // "spending cap" (Gemini) and "spending limit" (xAI, #1076) are the same
   // condition in two house styles — a configured ceiling was reached.
@@ -91,6 +93,9 @@ const PROVIDER_ERROR_PATTERNS: ProviderErrorPattern[] = [
   // succeeds" while the same log held nine of these. Measured on a live account
   // whose ChatGPT subscription was capped.
   { regex: /\bthe usage limit has been reached\b/i, label: PROVIDER_USAGE_LIMIT_LABEL },
+  // the Codex CLI's wording for the same capped plan: `You’ve hit your usage limit. … try
+  // again at 7:58 AM.` Claude's `hit your session limit` names its window and stays out.
+  { regex: /\bhit your usage limit\b/i, label: PROVIDER_USAGE_LIMIT_LABEL },
   // the OpenRouter shapes `isRouterKeylimitExhaustedError` matches. on a Router
   // run those mean the PULLFROG wallet is empty and `renderRunError` returns a
   // `BillingError` before ever reaching this list; on a BYOK run the very same
@@ -322,7 +327,9 @@ export function isTransientUpstreamError(text: string): boolean {
     /API Error:\s*5\d\d/i.test(text) ||
     /\bOverloaded\b/.test(text) ||
     /"error_type"\s*:\s*"(?:provider_unavailable|timeout)"/i.test(text) ||
-    /Streaming response failed:\s*\[5\d\d\]/i.test(text)
+    /Streaming response failed:\s*\[5\d\d\]/i.test(text) ||
+    // the Codex CLI's `Selected model is at capacity. Please try a different model.`
+    /\bmodel is at capacity\b/i.test(text)
   );
 }
 

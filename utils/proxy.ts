@@ -20,7 +20,12 @@
  */
 
 import * as yes from "yes";
-import { DEFAULT_PROXY_MODEL, isCardGatedModel, resolveOpenRouterModel } from "../models.ts";
+import {
+  DEFAULT_PROXY_MODEL,
+  isCardGatedModel,
+  resolveOpenRouterModel,
+  TRIAL_PROXY_MODEL,
+} from "../models.ts";
 import type { ToolState } from "../toolState.ts";
 import { apiFetch } from "./apiFetch.ts";
 import { isLocalApiUrl } from "./apiUrl.ts";
@@ -62,8 +67,9 @@ async function mintProxyKey(ctx: {
         const r = await apiFetch({ path: "/api/proxy-token", method: "POST", headers });
         if (r.status >= 500) {
           const body = (await r.json().catch(() => null)) as { error?: string } | null;
+          log.warning(`proxy key mint: ${r.status} ${body?.error ?? ""}`);
           throw new TransientError(
-            body?.error ?? "billing service temporarily unavailable — retry shortly"
+            "Pullfrog's billing service is temporarily unavailable, so this run didn't start."
           );
         }
         return r;
@@ -93,7 +99,8 @@ async function mintProxyKey(ctx: {
     // error would misdirect the user to add a provider key (the ccusage churn).
     if (response.status === 404) {
       throw new TransientError(
-        "Pullfrog couldn't match this repository to its account — it may have just been renamed or transferred. The link refreshes automatically on the next run; if it keeps failing, reinstall the GitHub App on the repo's current owner."
+        "Pullfrog couldn't match this repository to its account.",
+        "It may have just been renamed or transferred, and the link refreshes on the next run. If it keeps failing, reinstall the GitHub App on the repository's current owner."
       );
     }
 
@@ -332,7 +339,7 @@ export async function runProxyResolution(ctx: {
       throw error;
     }
     if (error instanceof TransientError) {
-      const summary = formatTransientErrorSummary(error, ctx.repo.owner);
+      const summary = formatTransientErrorSummary(error);
       await writeSummary(summary).catch(() => {});
       await reportErrorToComment({
         toolState: ctx.toolState,
@@ -362,6 +369,7 @@ export async function runProxyResolution(ctx: {
 export async function resolveTrialFallback(ctx: {
   payload: ResolvedPayload;
   configuredModel: string | undefined;
+  creditsLeftUsd: number | undefined;
   oidcCredentials: OidcCredentials | null;
   repo: { owner: string; name: string };
   toolState: ToolState;
@@ -381,14 +389,15 @@ export async function resolveTrialFallback(ctx: {
 
   process.env.OPENROUTER_API_KEY = key;
   maskSecret(key);
-  ctx.payload.proxyModel = DEFAULT_PROXY_MODEL;
-  ctx.toolState.model = DEFAULT_PROXY_MODEL;
+  ctx.payload.proxyModel = TRIAL_PROXY_MODEL;
+  ctx.toolState.model = TRIAL_PROXY_MODEL;
   // `from` is what the repo was configured to use, so the disclosure can name
   // what did NOT run. absent when the repo never picked a model at all.
   ctx.toolState.modelClamped = {
-    from: ctx.configuredModel ?? DEFAULT_PROXY_MODEL,
+    from: ctx.configuredModel ?? TRIAL_PROXY_MODEL,
     reason: "trial",
+    creditsLeftUsd: ctx.creditsLeftUsd,
   };
-  log.info(`» proxy: trial → ${DEFAULT_PROXY_MODEL}`);
+  log.info(`» proxy: trial → ${TRIAL_PROXY_MODEL}`);
   return true;
 }

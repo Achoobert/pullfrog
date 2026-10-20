@@ -9,6 +9,7 @@ import {
   getModelEnvVars,
   getModelManagedCredentials,
   getOpenCodeEnvVars,
+  modelAliases,
   OPENAI_COMPATIBLE_API_KEY_ENV,
   OPENAI_COMPATIBLE_BASE_URL_ENV,
   OPENAI_COMPATIBLE_CONTEXT_ENV,
@@ -17,10 +18,12 @@ import {
   OPENAI_COMPATIBLE_PROVIDER,
   providers,
   resolveDisplayAlias,
+  TRIAL_FUNDED_USD_LIMIT,
   VERTEX_MODEL_ID_ENV,
 } from "../models.ts";
 import { getApiUrl } from "./apiUrl.ts";
 import { PULLFROG_DATA_DIR, unhostedSubscriptions } from "./codexHome.ts";
+import { DISCORD_LINK, type FailureLink, renderFailure } from "./failureBody.ts";
 import { getModelsFailure } from "./openCodeModels.ts";
 import { PROVIDER_DASHBOARDS } from "./providerDashboards.ts";
 import type { CredentialCandidate } from "./subscriptionCredentials.ts";
@@ -33,20 +36,20 @@ import {
 } from "./vertex.ts";
 
 /** marker prefix on the throw message for the catch-side reclassification path */
-const MISSING_KEY_MARKER = "no API key found";
+const MISSING_KEY_MARKER = "No API key found";
 /** shared sentence in the four `resolveSlug` routing-slug throws. */
-export const BYOK_SLUG_MARKER = "env var is required when the model is set to";
+export const BYOK_SLUG_MARKER = "must be set when the model is";
 /** shared sentence in the four `validate*Setup` throws. */
-export const BYOK_CONFIG_MARKER = "selected but required configuration is missing:";
+export const BYOK_CONFIG_MARKER = "is missing required settings:";
 
 /**
  * What an owned setup error looks like from character zero: an ALL-CAPS env var
- * name before the slug marker, or a capitalised provider name (up to four words,
- * for `Google Vertex AI model`) before the config marker. Neither marker contains
- * a regex metacharacter, so both interpolate literally.
+ * name in a code span before the slug marker, or a capitalised provider name (up
+ * to four words, for `Google Vertex AI`) before the config marker. Neither marker
+ * contains a regex metacharacter, so both interpolate literally.
  */
 const BYOK_SETUP_PATTERN = new RegExp(
-  `^(?:[A-Z][A-Z0-9_]+ ${BYOK_SLUG_MARKER}|[A-Z][\\w-]*(?: [\\w-]+){0,3} ${BYOK_CONFIG_MARKER})`
+  `^(?:\`[A-Z][A-Z0-9_]+\` ${BYOK_SLUG_MARKER}|[A-Z][\\w-]*(?: [\\w-]+){0,3} ${BYOK_CONFIG_MARKER})`
 );
 
 /**
@@ -76,7 +79,7 @@ export function isByokSetupError(text: string): boolean {
  * `MODEL_ACCESS_MARKER`) because blaming the user for a transient fetch failure
  * on our side is the wrong CTA — their key is configured and still stored.
  */
-export const SECRETS_UNAVAILABLE_MARKER = "couldn't load your Pullfrog secrets";
+export const SECRETS_UNAVAILABLE_MARKER = "couldn't load your stored secrets";
 
 /**
  * marker for the "your Router wallet is empty AND you have no provider key"
@@ -84,7 +87,37 @@ export const SECRETS_UNAVAILABLE_MARKER = "couldn't load your Pullfrog secrets";
  * `formatApiKeyErrorSummary` rebuilds any body carrying `MISSING_KEY_MARKER`
  * that doesn't start with it, which would silently discard this copy.
  */
-export const ROUTER_UNFUNDED_MARKER = "your Pullfrog Router balance is empty";
+export const ROUTER_UNFUNDED_MARKER = "Your Pullfrog Router balance is empty";
+
+/**
+ * marker for the body a trial account gets once its funded credits are spent:
+ * at the late fallback, or when the funded key runs out mid-run. Without it the
+ * first is told to add an API key and the second that a Router wallet it never
+ * had went negative, and neither mentions the trial.
+ */
+export const TRIAL_SPENT_MARKER = "reached the limit of your free trial credits";
+
+export function buildTrialSpentError(params: { owner: string }): string {
+  return renderFailure({
+    headline: `You've ${TRIAL_SPENT_MARKER}.`,
+    detail: `Your $${TRIAL_FUNDED_USD_LIMIT} of trial usage credits have been used up, so you'll need to connect a provider to continue using Pullfrog.`,
+    links: [providerLink(params.owner)],
+  });
+}
+
+/** the repo's console page: its model, instructions and scripts. */
+export function repoConsoleUrl(repo: { owner: string; name: string }): string {
+  return `${getApiUrl()}/console/${repo.owner}/${repo.name}`;
+}
+
+export function pickModelLink(repo: { owner: string; name: string }): FailureLink {
+  return { label: "Pick another model", url: repoConsoleUrl(repo) };
+}
+
+/** the account console's billing card: provider keys, subscriptions and Router credit. */
+export function providerLink(owner: string): FailureLink {
+  return { label: "Connect a provider", url: `${getApiUrl()}/console/${owner}#billing` };
+}
 
 /**
  * marker for a credential the provider explicitly REJECTED before the agent
@@ -142,7 +175,7 @@ function throwKeyError(params: {
   secretsUnavailable?: boolean | undefined;
   routerUnfunded?: boolean | undefined;
 }): never {
-  if (params.secretsUnavailable) throw new Error(buildSecretsUnavailableError(params));
+  if (params.secretsUnavailable) throw new Error(buildSecretsUnavailableError());
   if (params.routerUnfunded) throw new NoUsableCredentialError(buildRouterUnfundedError(params));
   throw new NoUsableCredentialError(buildMissingApiKeyError(params));
 }
@@ -156,39 +189,23 @@ function throwKeyError(params: {
  * funding remedy because that is the one that matches how the account is
  * actually configured.
  */
-function buildRouterUnfundedError(params: {
-  owner: string;
-  name: string;
-  model?: string | undefined;
-}): string {
-  const billingUrl = `${getApiUrl()}/console/${params.owner}#billing`;
-  const settingsUrl = `${getApiUrl()}/console/${params.owner}/${params.name}`;
-  const modelClause = params.model ? ` \`${params.model}\` never ran.` : " the agent never ran.";
-
-  return [
-    `**${ROUTER_UNFUNDED_MARKER}**, and this repo has no provider key to fall back on, so${modelClause}`,
-    "",
-    "**To fix, any one of:** add a payment method or top up your Router balance · add a provider API key (GitHub Actions secret or Pullfrog secret) · switch this repo to a free model.",
-    "",
-    `[Top up Router →](${billingUrl}) · [Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-  ].join("\n");
+function buildRouterUnfundedError(params: { owner: string }): string {
+  return renderFailure({
+    headline: `${ROUTER_UNFUNDED_MARKER}, and this repo has no API key to fall back on.`,
+    detail: "Add Router credit, or connect your own provider key or subscription.",
+    links: [
+      { label: "Billing and providers", url: `${getApiUrl()}/console/${params.owner}#billing` },
+    ],
+  });
 }
 
-function buildSecretsUnavailableError(params: {
-  owner: string;
-  name: string;
-  model?: string | undefined;
-}): string {
-  const settingsUrl = `${getApiUrl()}/console/${params.owner}/${params.name}`;
-  const modelClause = params.model ? ` needed for \`${params.model}\`` : "";
-
-  return [
-    `**Pullfrog ${SECRETS_UNAVAILABLE_MARKER}${modelClause} on this run.** The key is still stored — the runner just couldn't fetch it, so this is a transient failure on our side, not a missing key.`,
-    "",
-    "**To fix:** re-run the job. If it keeps happening, tell us in Discord.",
-    "",
-    `[Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-  ].join("\n");
+export function buildSecretsUnavailableError(): string {
+  return renderFailure({
+    headline: `Pullfrog ${SECRETS_UNAVAILABLE_MARKER} for this run.`,
+    detail:
+      "They're still saved; this is a temporary failure on our side. Re-trigger to try again, and tell us in Discord if it keeps happening.",
+    links: [DISCORD_LINK],
+  });
 }
 
 /**
@@ -209,33 +226,56 @@ function buildMissingApiKeyError(params: {
   name: string;
   model?: string | undefined;
 }): string {
-  const githubSecretsUrl = `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
-  const settingsUrl = `${getApiUrl()}/console/${params.owner}/${params.name}`;
-
   const envVars = params.model?.includes("/") ? getModelEnvVars(params.model) : [];
   const [primary, ...alternates] = envVars;
   const envVarList = primary
     ? `\`${primary}\`${alternates.length > 0 ? ` (or ${alternates.map((v) => `\`${v}\``).join(" / ")})` : ""}`
     : undefined;
-
-  const lead = envVarList
-    ? `**${MISSING_KEY_MARKER}** — this run used \`${params.model}\`, which needs ${envVarList}, but the runner has no key for it.`
-    : `**${MISSING_KEY_MARKER}** — Pullfrog needs at least one LLM provider API key (e.g. \`ANTHROPIC_API_KEY\`, \`OPENAI_API_KEY\`, \`GEMINI_API_KEY\`) configured as a GitHub Actions secret.`;
+  // the run passes the resolved id (`moonshotai/kimi-k2.7-code`); name the model as it was picked
+  const alias = params.model
+    ? (resolveDisplayAlias(params.model) ??
+      modelAliases.find((a) => !a.fallback && a.resolve === params.model))
+    : undefined;
+  const modelName = params.model ? (alias?.displayName ?? `\`${params.model}\``) : undefined;
 
   const unhosted = params.model?.includes("/")
     ? getModelManagedCredentials(params.model).find((name) => unhostedSubscriptions.has(name))
     : undefined;
-  const fix = unhosted
-    ? `**To fix:** your ${SUBSCRIPTION_CREDENTIALS[unhosted]?.label} is stored, but this runner has no passwordless \`sudo\`, which Pullfrog needs to keep it in \`${PULLFROG_DATA_DIR}\`, out of the agent's reach. Allow passwordless \`sudo\` for the runner user, run on a GitHub-hosted runner, or add an API key as a GitHub Actions secret or a Pullfrog secret.`
-    : "**To fix:** add the key as a GitHub Actions secret (referenced from your workflow's `env:` block) or as a Pullfrog secret in the console — or switch this repo to a different model (free models need no key).";
+  const detail = unhosted
+    ? `Your ${SUBSCRIPTION_CREDENTIALS[unhosted]?.label} is stored, but this runner has no passwordless \`sudo\`, which Pullfrog needs to keep it in \`${PULLFROG_DATA_DIR}\`, out of the agent's reach. Allow passwordless \`sudo\` for the runner user, run on a GitHub-hosted runner, or add an API key.`
+    : envVarList
+      ? `It needs ${envVarList}. Connect it in Pullfrog or add it as a GitHub Actions secret, or pick a model you already have a key for.`
+      : "Pullfrog needs a key or subscription for at least one model provider. Connect one in Pullfrog, or add a key as a GitHub Actions secret.";
 
+  return renderFailure({
+    headline:
+      envVarList && modelName
+        ? `${MISSING_KEY_MARKER} for ${modelName}.`
+        : `${MISSING_KEY_MARKER}.`,
+    detail,
+    links: [providerLink(params.owner), pickModelLink(params)],
+  });
+}
+
+/** the setup copy's shared shape: what is missing, where to put it, the env block, a guide. */
+function buildSetupError(params: {
+  provider: string;
+  missing: string[];
+  where: string;
+  env: string[];
+  note?: string | undefined;
+  guide: string;
+}): string {
+  const missing = params.missing.map((name) => `\`${name}\``).join(", ");
   return [
-    lead,
-    "",
-    fix,
-    "",
-    `[Open repo secrets →](${githubSecretsUrl}) · [Configure model →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-  ].join("\n");
+    `${params.provider} ${BYOK_CONFIG_MARKER} ${missing}. ${params.where}`,
+    `\`\`\`yaml\n${params.env.join("\n")}\n\`\`\``,
+    `${params.note ? `${params.note} ` : ""}[${params.provider} setup guide](${params.guide})`,
+  ].join("\n\n");
+}
+
+function secretsUrl(params: { owner: string; name: string }): string {
+  return `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
 }
 
 function buildBedrockSetupError(params: {
@@ -243,34 +283,33 @@ function buildBedrockSetupError(params: {
   name: string;
   missing: string[];
 }): string {
-  const githubSecretsUrl = `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
-
-  return `Bedrock model ${BYOK_CONFIG_MARKER} ${params.missing.join(", ")}.
-
-add the missing secret(s) to your GitHub repository at ${githubSecretsUrl}, then reference them in your workflow's \`env:\` block:
-
-  AWS_BEARER_TOKEN_BEDROCK: \${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
-  AWS_REGION: \${{ secrets.AWS_REGION }}
-  ${BEDROCK_MODEL_ID_ENV}: \${{ secrets.${BEDROCK_MODEL_ID_ENV} }}
-
-\`AWS_BEARER_TOKEN_BEDROCK\` may be substituted with \`AWS_ACCESS_KEY_ID\` + \`AWS_SECRET_ACCESS_KEY\` (and optional \`AWS_SESSION_TOKEN\`) if you prefer access keys.
-
-for full setup instructions, see https://docs.pullfrog.com/bedrock`;
+  return buildSetupError({
+    provider: "Amazon Bedrock",
+    missing: params.missing,
+    where: `Add them to [this repo's Actions secrets](${secretsUrl(params)}) and pass them in the workflow's \`env:\` block:`,
+    env: [
+      `AWS_BEARER_TOKEN_BEDROCK: \${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}`,
+      `AWS_REGION: \${{ secrets.AWS_REGION }}`,
+      `${BEDROCK_MODEL_ID_ENV}: \${{ secrets.${BEDROCK_MODEL_ID_ENV} }}`,
+    ],
+    note: "`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (plus `AWS_SESSION_TOKEN` if you use one) can replace the bearer token.",
+    guide: "https://docs.pullfrog.com/bedrock",
+  });
 }
 
 function buildVertexSetupError(params: { owner: string; name: string; missing: string[] }): string {
-  const githubSecretsUrl = `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
-
-  return `Google Vertex AI model ${BYOK_CONFIG_MARKER} ${params.missing.join(", ")}.
-
-add the missing secret(s) to your GitHub repository at ${githubSecretsUrl}, then reference them in your workflow's \`env:\` block:
-
-  ${VERTEX_SERVICE_ACCOUNT_JSON_ENV}: \${{ secrets.${VERTEX_SERVICE_ACCOUNT_JSON_ENV} }}
-  ${GOOGLE_CLOUD_PROJECT_ENV}: my-project
-  ${VERTEX_LOCATION_ENV}: global
-  ${VERTEX_MODEL_ID_ENV}: <vertex-model-id>
-
-for full setup instructions, see https://docs.pullfrog.com/vertex`;
+  return buildSetupError({
+    provider: "Google Vertex AI",
+    missing: params.missing,
+    where: `Add the service account to [this repo's Actions secrets](${secretsUrl(params)}) and set the rest in the workflow's \`env:\` block:`,
+    env: [
+      `${VERTEX_SERVICE_ACCOUNT_JSON_ENV}: \${{ secrets.${VERTEX_SERVICE_ACCOUNT_JSON_ENV} }}`,
+      `${GOOGLE_CLOUD_PROJECT_ENV}: my-project`,
+      `${VERTEX_LOCATION_ENV}: global`,
+      `${VERTEX_MODEL_ID_ENV}: <vertex-model-id>`,
+    ],
+    guide: "https://docs.pullfrog.com/vertex",
+  });
 }
 
 function buildOpenAICompatibleSetupError(params: {
@@ -278,49 +317,37 @@ function buildOpenAICompatibleSetupError(params: {
   name: string;
   missing: string[];
 }): string {
-  const githubSecretsUrl = `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
-
-  return `OpenAI-compatible model ${BYOK_CONFIG_MARKER} ${params.missing.join(", ")}.
-
-only the API key is sensitive — add it as a secret at ${githubSecretsUrl}. everything else is plain workflow \`env:\`:
-
-  ${OPENAI_COMPATIBLE_BASE_URL_ENV}: https://your-endpoint.example.com/v1
-  ${OPENAI_COMPATIBLE_API_KEY_ENV}: \${{ secrets.${OPENAI_COMPATIBLE_API_KEY_ENV} }}
-  ${OPENAI_COMPATIBLE_MODEL_ENV}: <model-id>
-  ${OPENAI_COMPATIBLE_CONTEXT_ENV}: "128000"
-  ${OPENAI_COMPATIBLE_MAX_OUTPUT_ENV}: "16384"
-
-set the last two to the real limits of the model your endpoint serves. Pullfrog can't
-discover them — your endpoint owns the model catalog — and without them completions are
-capped at 32000 tokens (rejected outright by models with a smaller cap) and
-auto-compaction is disabled, so long runs grow until your endpoint refuses them.
-
-for full setup instructions, see https://docs.pullfrog.com/openai-compatible`;
+  return buildSetupError({
+    provider: "OpenAI-compatible endpoint",
+    missing: params.missing,
+    where: `Set them on the OpenAI-compatible provider in [Pullfrog's provider settings](${getApiUrl()}/console/${params.owner}#billing), or in the workflow's \`env:\` block with the key as an [Actions secret](${secretsUrl(params)}):`,
+    env: [
+      `${OPENAI_COMPATIBLE_BASE_URL_ENV}: https://your-endpoint.example.com/v1`,
+      `${OPENAI_COMPATIBLE_API_KEY_ENV}: \${{ secrets.${OPENAI_COMPATIBLE_API_KEY_ENV} }}`,
+      `${OPENAI_COMPATIBLE_MODEL_ENV}: <model-id>`,
+      `${OPENAI_COMPATIBLE_CONTEXT_ENV}: "128000"`,
+      `${OPENAI_COMPATIBLE_MAX_OUTPUT_ENV}: "16384"`,
+    ],
+    note: "Use the real context and output limits of the model your endpoint serves: Pullfrog can't discover them, and without them long runs grow until the endpoint refuses them.",
+    guide: "https://docs.pullfrog.com/openai-compatible",
+  });
 }
 
 function buildAzureSetupError(params: { owner: string; name: string; missing: string[] }): string {
-  const githubSecretsUrl = `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
-
-  return `Azure OpenAI ${BYOK_CONFIG_MARKER} ${params.missing.join(", ")}.
-
-only the API key is sensitive — add it as a secret at ${githubSecretsUrl}. the rest is plain workflow \`env:\`:
-
-  ${AZURE_RESOURCE_NAME_ENV}: <name>
-  ${AZURE_API_KEY_ENV}: \${{ secrets.${AZURE_API_KEY_ENV} }}
-  ${AZURE_DEPLOYMENT_ENV}: <deployment-name>
-  ${AZURE_CONTEXT_ENV}: "400000"
-  ${AZURE_MAX_OUTPUT_ENV}: "128000"
-
-${AZURE_RESOURCE_NAME_ENV} is the \`<name>\` in your endpoint https://<name>.openai.azure.com.
-${AZURE_DEPLOYMENT_ENV} is the name of the deployment, which is not necessarily the name of
-the model it serves — Azure routes on the deployment name.
-
-set the last two to the real limits of whichever model your deployment serves. Pullfrog can't
-discover them — a deployment name carries no catalog metadata — and without them completions
-are capped at 32000 tokens (rejected outright by models with a smaller cap) and auto-compaction
-is disabled, so long runs grow until Azure refuses them.
-
-for full setup instructions, see https://docs.pullfrog.com/azure`;
+  return buildSetupError({
+    provider: "Azure OpenAI",
+    missing: params.missing,
+    where: `Set them on the Azure OpenAI provider in [Pullfrog's provider settings](${getApiUrl()}/console/${params.owner}#billing), or in the workflow's \`env:\` block with the key as an [Actions secret](${secretsUrl(params)}):`,
+    env: [
+      `${AZURE_RESOURCE_NAME_ENV}: <name>`,
+      `${AZURE_API_KEY_ENV}: \${{ secrets.${AZURE_API_KEY_ENV} }}`,
+      `${AZURE_DEPLOYMENT_ENV}: <deployment-name>`,
+      `${AZURE_CONTEXT_ENV}: "400000"`,
+      `${AZURE_MAX_OUTPUT_ENV}: "128000"`,
+    ],
+    note: `\`${AZURE_RESOURCE_NAME_ENV}\` is the \`<name>\` in \`https://<name>.openai.azure.com\`, and \`${AZURE_DEPLOYMENT_ENV}\` is the deployment's name, not the model it serves. Use that model's real context and output limits: Pullfrog can't discover them, and without them long runs grow until Azure refuses them.`,
+    guide: "https://docs.pullfrog.com/azure",
+  });
 }
 
 function hasEnvVar(name: string): boolean {
@@ -691,9 +718,14 @@ export function isMalformedKeyError(text: string): boolean {
  * Anthropic entitlement denial for Claude Pro/Max subscription auth (#1072):
  * an org admin turned off Claude Code subscription access. no credential the
  * user controls fixes it, so it gets its own copy instead of the re-auth CTA.
+ * The probe sees the same denial as a 403, `OAuth authentication is currently
+ * not allowed for this organization`, which used to be answered "sign in again".
  */
 export function isClaudeSubscriptionDisabledError(text: string): boolean {
-  return /disabled Claude subscription access/i.test(text);
+  return (
+    /disabled Claude subscription access/i.test(text) ||
+    /OAuth authentication is currently not allowed for this organization/i.test(text)
+  );
 }
 
 /**
@@ -747,23 +779,51 @@ export function isClaudeSessionLimitError(text: string): boolean {
  * token` and that is also what a rotated `ANTHROPIC_API_KEY` reads (#782).
  * The credential in play is knowable, so it decides the copy — never the prose.
  */
-const SUBSCRIPTION_CREDENTIALS: Record<string, { label: string; command: string; docs: string }> = {
+const SUBSCRIPTION_CREDENTIALS: Record<
+  string,
+  { label: string; command: string; provider: string }
+> = {
   CLAUDE_CODE_OAUTH_TOKEN: {
     label: "Claude Pro/Max subscription",
     command: "pullfrog auth claude",
-    docs: "https://docs.pullfrog.com/claude-auth",
+    provider: "anthropic",
   },
   CODEX_AUTH_JSON: {
     label: "ChatGPT subscription",
     command: "pullfrog auth codex",
-    docs: "https://docs.pullfrog.com/codex-auth",
+    provider: "openai",
   },
   GROK_AUTH_JSON: {
     label: "Grok subscription",
     command: "pullfrog auth grok",
-    docs: "https://docs.pullfrog.com/grok-auth",
+    provider: "xai",
   },
 };
+
+/** the subscription that serves `model`'s provider, named by the env var that carries it. */
+export function subscriptionFor(model: string | undefined) {
+  const provider = model?.split("/")[0];
+  for (const [env, subscription] of Object.entries(SUBSCRIPTION_CREDENTIALS)) {
+    if (subscription.provider === provider) return { env, ...subscription };
+  }
+  return undefined;
+}
+
+const SIGN_IN_AGAIN = (command: string) => `Sign in again by running \`${command}\` in a terminal`;
+
+const CLAUDE_ORG_DISABLED = {
+  headline: "Your Claude organization doesn't allow subscription sign-in for Claude Code.",
+  detail:
+    "Ask its admin to allow it in the Claude Console, or connect an Anthropic API key instead.",
+};
+
+/** a provider id's display name, e.g. `openai` → OpenAI. */
+export function providerDisplayName(id: string | null | undefined): string | undefined {
+  for (const [key, provider] of Object.entries(providers)) {
+    if (key === id) return provider.displayName;
+  }
+  return undefined;
+}
 
 /**
  * The provider rejected a credential we checked before the agent started, and
@@ -779,43 +839,48 @@ export function buildRejectedCredentialError(params: {
   /** stored in Pullfrog (console / `pullfrog auth`) rather than a GitHub Actions secret. */
   inPullfrogStore: boolean;
 }): string {
-  const settingsUrl = `${getApiUrl()}/console/${params.owner}/${params.name}`;
   const subscription = SUBSCRIPTION_CREDENTIALS[params.credential];
-  const detail = params.reason ? ` (\`${params.reason}\`)` : "";
+  const details = params.reason
+    ? { summary: "The provider's response", text: params.reason }
+    : undefined;
 
   if (subscription) {
-    return [
-      `**Your ${subscription.label} ${CREDENTIAL_REJECTED_MARKER}**${detail}, so the agent never ran.`,
-      "",
-      `**To fix:** re-authenticate with \`${subscription.command}\`. A subscription credential can't be rotated from a provider dashboard — it has to be re-issued. You can also switch this repo to a model you hold an API key for.`,
-      "",
-      `[Re-authenticate →](${subscription.docs}) · [Model settings →](${settingsUrl}) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+    const orgDisabled =
+      params.reason !== undefined && isClaudeSubscriptionDisabledError(params.reason);
+    return renderFailure({
+      headline: `Your ${subscription.label} ${CREDENTIAL_REJECTED_MARKER}.`,
+      detail: orgDisabled
+        ? `${CLAUDE_ORG_DISABLED.headline} ${CLAUDE_ORG_DISABLED.detail}`
+        : `${SIGN_IN_AGAIN(subscription.command)}, or pick a model you have an API key for.`,
+      details,
+      links: [orgDisabled ? providerLink(params.owner) : pickModelLink(params)],
+    });
   }
 
-  const where = params.inPullfrogStore
-    ? `[Update it in Pullfrog →](${settingsUrl})`
-    : `[Update the GitHub Actions secret →](https://github.com/${params.owner}/${params.name}/settings/secrets/actions)`;
-  const keysUrl = providerDashboard(params.credential)?.keys;
-  const issue = keysUrl ? `[Issue a new key →](${keysUrl}) · ` : "";
-
-  return [
-    `**Your \`${params.credential}\` ${CREDENTIAL_REJECTED_MARKER}**${detail}, so the agent never ran.`,
-    "",
-    `**To fix:** issue a new key in your provider dashboard and update the copy Pullfrog uses${params.inPullfrogStore ? " in the console" : " in your repo's GitHub Actions secrets"}.`,
-    "",
-    `${issue}${where} · [Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-  ].join("\n");
+  const provider = credentialProvider(params.credential);
+  const keysUrl = provider ? PROVIDER_DASHBOARDS[provider.id]?.keys : undefined;
+  const update: FailureLink = params.inPullfrogStore
+    ? {
+        label: "Update it in Pullfrog",
+        url: `${getApiUrl()}/console/${params.owner}/${params.name}`,
+      }
+    : { label: "Update the Actions secret", url: secretsUrl(params) };
+  return renderFailure({
+    headline: `Your ${provider ? `${provider.displayName} key` : "key"} \`${params.credential}\` ${CREDENTIAL_REJECTED_MARKER}.`,
+    detail: `Issue a new key and update the copy ${params.inPullfrogStore ? "stored in Pullfrog" : "in this repo's GitHub Actions secrets"}.`,
+    details,
+    links: keysUrl ? [{ label: "Issue a new key", url: keysUrl }, update] : [update],
+  });
 }
 
 /**
- * The dashboard of the provider that owns this env var. First match wins, which
- * only matters for `OPENCODE_API_KEY` — Zen and Go share it, and both rows name
- * the same keys page, so the order is not load-bearing for `keys`.
+ * The provider that owns this env var. First match wins, which only matters for
+ * `OPENCODE_API_KEY` — Zen and Go share it, and both rows name the same keys
+ * page, so the order is not load-bearing for `keys`.
  */
-function providerDashboard(credential: string) {
+function credentialProvider(credential: string) {
   for (const [id, provider] of Object.entries(providers)) {
-    if (provider.envVars.includes(credential)) return PROVIDER_DASHBOARDS[id];
+    if (provider.envVars.includes(credential)) return { id, displayName: provider.displayName };
   }
   return undefined;
 }
@@ -828,8 +893,8 @@ export type RefusedCredential = {
 
 /**
  * The credential pool probed every credential configured for the model and
- * none can serve it. One bullet per credential: the probe's own verdict, quoted,
- * plus the remedy its kind and status call for — never inferred from the prose.
+ * none can serve it. One sentence per credential, from its kind and status —
+ * never inferred from the prose — with the probe's own verdicts collapsed below.
  */
 export function buildCredentialPoolRefusedError(params: {
   model: string;
@@ -837,68 +902,80 @@ export function buildCredentialPoolRefusedError(params: {
   owner: string;
   name: string;
 }): string {
-  const settingsUrl = `${getApiUrl()}/console/${params.owner}/${params.name}`;
-  return [
-    `**${CREDENTIAL_POOL_REFUSED_MARKER}.** Every credential configured for \`${params.model}\` was rejected or is out of quota, so the agent never ran.`,
-    "",
-    ...params.refused.map(
-      (credential) => `- ${describeRefusal({ ...params, credential, settingsUrl })}`
-    ),
-    "",
-    `[Model settings →](${settingsUrl}) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-  ].join("\n");
+  const [first = "", second, ...rest] = params.refused.map((credential) =>
+    describeRefusal({ credential, owner: params.owner, name: params.name })
+  );
+  return renderFailure({
+    headline: `${CREDENTIAL_POOL_REFUSED_MARKER}.`,
+    detail:
+      second === undefined ? first : `Every credential for \`${params.model}\` was turned down:`,
+    list: second === undefined ? undefined : [first, second, ...rest],
+    details: {
+      summary: "The providers' responses",
+      text: params.refused
+        .map((credential) => `${credential.name}: ${credential.verdict.detail}`)
+        .join("\n"),
+    },
+    links: [pickModelLink(params)],
+  });
 }
 
-function describeRefusal(params: {
-  credential: RefusedCredential;
-  owner: string;
-  name: string;
-  settingsUrl: string;
-}) {
+function describeRefusal(params: { credential: RefusedCredential; owner: string; name: string }) {
   const credential = params.credential;
   const verdict = credential.verdict;
-  const workflow = credential.source === "workflow";
-  const head = `\`${credential.name}\` from ${workflow ? "the workflow" : `${credential.source} scope`}: \`${verdict.detail}\` —`;
   const subscription = SUBSCRIPTION_CREDENTIALS[credential.name];
-  const dashboard = providerDashboard(credential.name);
+  const dashboard = PROVIDER_DASHBOARDS[credentialProvider(credential.name)?.id ?? ""];
+  const what = subscription ? `Your ${subscription.label}` : `Your \`${credential.name}\``;
   if (verdict.status === "exhausted" && subscription) {
-    const wait = verdict.resetAt
-      ? `it resets at **${verdict.resetAt.toISOString().slice(0, 16).replace("T", " ")} UTC**; re-trigger after that`
-      : "re-trigger after the limit resets";
-    return `${head} ${wait}, or add an API key for this provider, which Pullfrog falls back to automatically.`;
+    const reset = verdict.resetAt
+      ? `, which resets at **${verdict.resetAt.toISOString().slice(0, 16).replace("T", " ")} UTC**`
+      : "";
+    return `${what} has hit its usage limit${reset}. Re-trigger after it resets, or add an API key for this provider, which Pullfrog falls back to automatically.`;
   }
-  if (verdict.status === "exhausted")
-    return `${head} add credit or raise its quota with the provider.${dashboard ? ` [Top up →](${dashboard.billing})` : ""}`;
-  if (subscription)
-    return `${head} re-authenticate with \`${subscription.command}\`, or switch this repo to a model you hold an API key for. [Re-authenticate →](${subscription.docs})`;
-  const where = workflow
-    ? `[Update the GitHub Actions secret →](https://github.com/${params.owner}/${params.name}/settings/secrets/actions)`
-    : `[Update it in Pullfrog →](${params.settingsUrl})`;
-  const issue = dashboard?.keys ? `[Issue a new key →](${dashboard.keys}) · ` : "";
-  return `${head} issue a new key and update the copy Pullfrog uses. ${issue}${where}`;
+  if (verdict.status === "exhausted") {
+    return `${what} is out of credit or quota. ${dashboard ? `[Add credit](${dashboard.billing})` : "Add credit"} with the provider, or raise its quota.`;
+  }
+  if (subscription && isClaudeSubscriptionDisabledError(verdict.detail)) {
+    return `${CLAUDE_ORG_DISABLED.headline} ${CLAUDE_ORG_DISABLED.detail}`;
+  }
+  if (subscription) return `${what} was rejected. ${SIGN_IN_AGAIN(subscription.command)}.`;
+  const issue = dashboard?.keys ? `[Issue a new key](${dashboard.keys})` : "Issue a new key";
+  const where =
+    credential.source === "workflow"
+      ? `in [this repo's GitHub Actions secrets](${secretsUrl(params)})`
+      : `in [Pullfrog](${getApiUrl()}/console/${params.owner}#billing)`;
+  return `${what} was rejected. ${issue} and update it ${where}.`;
 }
 
 /**
  * Friendly Markdown summary for both the missing-key and invalid-key cases.
  * Used in the catch / result-failure paths in `main.ts` to overwrite the raw
- * agent error before it's posted to the PR progress comment.
+ * agent error before it's posted to the PR progress comment. `model` names the
+ * subscription in play — guessing it from the env once told a GPT run its Claude
+ * subscription was rejected — and `output`, the provider's own words, is
+ * collapsed under the copy.
  */
 export function formatApiKeyErrorSummary(params: {
   owner: string;
   name: string;
   raw: string;
+  model?: string | undefined;
+  credential?: string | undefined;
+  output?: string | undefined;
 }): string {
   if (params.raw.includes(MISSING_KEY_MARKER)) {
     // a verbatim validateAgentApiKey throw is already the full rendered body
     // (model-specific copy included) — pass it through. only rebuild the
     // generic copy when the marker is embedded in surrounding noise (e.g. a
     // hang body that swallowed the original message).
-    if (params.raw.startsWith(`**${MISSING_KEY_MARKER}**`)) return params.raw;
+    if (params.raw.startsWith(`**${MISSING_KEY_MARKER}`)) return params.raw;
     return buildMissingApiKeyError({ owner: params.owner, name: params.name });
   }
 
-  const githubSecretsUrl = `https://github.com/${params.owner}/${params.name}/settings/secrets/actions`;
-  const settingsUrl = `${getApiUrl()}/console/${params.owner}/${params.name}`;
+  const details = params.output
+    ? { summary: "The provider's response", text: params.output }
+    : undefined;
+  const subscription = subscriptionFor(params.model);
 
   // the subscription hit its usage cap. checked before every credential branch
   // below: nothing is wrong with the token, so a "rotate your key" CTA would
@@ -906,78 +983,102 @@ export function formatApiKeyErrorSummary(params: {
   // — it's the only thing that stops them re-triggering into the same wall.
   if (isClaudeSessionLimitError(params.raw)) {
     const reset = CLAUDE_SESSION_LIMIT_PATTERN.exec(params.raw)?.[1]?.trim();
-    const resets = reset ? ` It resets at **${reset}**.` : "";
-    return [
-      `**Your Claude subscription has hit its usage limit.**${resets} Re-trigger Pullfrog after the reset, or add an \`ANTHROPIC_API_KEY\` repo secret — Pullfrog routes around an exhausted subscription automatically when one is present.`,
-      "",
-      `[Add repo secret →](${githubSecretsUrl}) · [Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+    return renderFailure({
+      headline: "Your Claude Pro/Max subscription has hit its usage limit.",
+      detail: `${reset ? `It resets at **${reset}**. ` : ""}Re-trigger after that, or connect an Anthropic API key, which Pullfrog falls back to automatically.`,
+      details,
+      links: [providerLink(params.owner)],
+    });
   }
 
   // the value is unsendable rather than wrong, so every "rotate the key" CTA
   // below would send the user to replace a key that is probably fine.
   if (isMalformedKeyError(params.raw)) {
-    return [
-      "**Your stored API key can't be sent as an HTTP header.** It contains a line break or control character — usually a key pasted across several lines. Re-save it as a single line; the key itself is likely fine.",
-      "",
-      `[Pullfrog secrets →](${getApiUrl()}/console/${params.owner}) · [Repo secrets →](${githubSecretsUrl}) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+    return renderFailure({
+      headline: "Your stored API key can't be sent as an HTTP header.",
+      detail:
+        "It contains a line break or control character, usually from a key pasted across several lines. Re-save it as a single line; the key itself is likely fine.",
+      links: [
+        {
+          label: "Pullfrog provider settings",
+          url: `${getApiUrl()}/console/${params.owner}#billing`,
+        },
+        { label: "GitHub Actions secrets", url: secretsUrl(params) },
+      ],
+    });
   }
 
   // an org admin disabled Claude Code subscription access — re-authenticating
   // can't clear an entitlement flag, so name the two remedies the provider's
   // own message spells out.
   if (isClaudeSubscriptionDisabledError(params.raw)) {
-    return [
-      `**Your organization has disabled Claude subscription access for Claude Code.** Ask your Claude organization's admin to re-enable it in the Claude Console, or set an \`ANTHROPIC_API_KEY\` for this repo instead, then re-trigger the run.`,
-      "",
-      `[Add repo secret →](${githubSecretsUrl}) · [Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+    return renderFailure({
+      ...CLAUDE_ORG_DISABLED,
+      details,
+      links: [providerLink(params.owner)],
+    });
   }
 
   // the Kimi membership doesn't cover the model that was asked for. same 401 a
   // revoked key returns, so it has to be checked before every rotate-the-key
   // branch below — the key is fine and there is nothing to re-issue.
   if (isKimiPlanTierError(params.raw)) {
-    return [
-      "**Your Kimi membership doesn't include the model this run asked for.** Kimi K3 needs a Moderato plan or above, and K3's 1M context and Kimi K2 HighSpeed need Allegretto or above. Upgrade the membership, or switch this repo to **Kimi K2**, which every tier includes.",
-      "",
-      `[Kimi plans →](https://www.kimi.com/membership/pricing) · [Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/kimi-code) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+    return renderFailure({
+      headline: "Your Kimi membership doesn't include the model this run asked for.",
+      detail:
+        "Kimi K3 needs a Moderato plan or above, and K3's 1M context and Kimi K2 HighSpeed need Allegretto or above. Upgrade the membership, or switch this repo to **Kimi K2**, which every tier includes.",
+      details,
+      links: [
+        { label: "Kimi plans", url: "https://www.kimi.com/membership/pricing" },
+        pickModelLink(params),
+      ],
+    });
   }
 
   // OAuth-connection credentials (Codex / provider OAuth) aren't repo
   // secrets — "rotate the key, update the GitHub secret" is wrong advice.
   if (isOAuthCredentialExpiredError(params.raw)) {
-    return [
-      `**Your provider OAuth credential has expired or been revoked.** Re-authenticate the provider connection (e.g. \`pullfrog auth claude\` / \`pullfrog auth codex\` / \`pullfrog auth grok\`), then re-trigger the run.`,
-      "",
-      `[Claude subscription →](https://docs.pullfrog.com/claude-auth) · [ChatGPT subscription →](https://docs.pullfrog.com/codex-auth) · [Model settings →](${settingsUrl}) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+    return renderFailure({
+      headline: subscription
+        ? `Your ${subscription.label}'s sign-in has expired or been revoked.`
+        : "Your provider sign-in has expired or been revoked.",
+      detail: subscription
+        ? `${SIGN_IN_AGAIN(subscription.command)}, then re-trigger.`
+        : "Sign in again with `pullfrog auth claude`, `pullfrog auth codex` or `pullfrog auth grok` in a terminal, whichever this repo uses, then re-trigger.",
+      details,
+      links: [pickModelLink(params)],
+    });
   }
 
   // the provider's wording can't tell a revoked subscription token from a
   // rotated API key — both read `Invalid bearer token` — so fall back to the
-  // credential actually in this run's env before assuming there is a key to
-  // rotate. only reachable when a credential dies mid-run: a dead one is
-  // deleted from env by `checkConfiguredCredentials` before the agent starts.
-  const subscription = Object.keys(SUBSCRIPTION_CREDENTIALS).find(hasEnvVar);
-  if (subscription && !hasEnvVar("ANTHROPIC_API_KEY")) {
-    const details = SUBSCRIPTION_CREDENTIALS[subscription];
-    return [
-      `**Your ${details?.label} was rejected during this run.** Re-authenticate with \`${details?.command}\` and re-trigger — a subscription credential can't be rotated from a provider dashboard.`,
-      "",
-      `[Re-authenticate →](${details?.docs}) · [Model settings →](${settingsUrl}) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-    ].join("\n");
+  // credential actually in this run before assuming there is a key to rotate.
+  // only reachable when a credential dies mid-run: a dead one is deleted from
+  // env by `checkConfiguredCredentials` before the agent starts.
+  if (subscription && hasEnvVar(subscription.env) && params.credential !== "api_key") {
+    return renderFailure({
+      headline: `Your ${subscription.label} was rejected during this run.`,
+      detail: `${SIGN_IN_AGAIN(subscription.command)}, then re-trigger.`,
+      details,
+      links: [pickModelLink(params)],
+    });
   }
 
-  // unlike `buildCredentialRejection`, which probed a named credential, the
+  // unlike `buildRejectedCredentialError`, which probed a named credential, the
   // mid-run path only has the provider's wording — so it can't know which store
   // the rejected key came from. naming one sent a customer whose only copy lives
   // in Pullfrog's store to an empty GitHub Actions settings page.
-  return [
-    `**Your LLM provider API key was rejected.** Rotate the key in your provider dashboard, then update the copy Pullfrog uses — wherever you saved it.`,
-    "",
-    `[Pullfrog secrets →](${getApiUrl()}/console/${params.owner}) · [Repo secrets →](${githubSecretsUrl}) · [Model settings →](${settingsUrl}) · [Setup docs →](https://docs.pullfrog.com/keys) · [Ask in Discord →](https://discord.gg/8y96raFg8e)`,
-  ].join("\n");
+  return renderFailure({
+    headline: `Your ${providerDisplayName(params.model?.split("/")[0]) ?? "model provider"} API key was rejected.`,
+    detail:
+      "Issue a new key with the provider, then update the copy Pullfrog uses, in Pullfrog or in this repo's GitHub Actions secrets.",
+    details,
+    links: [
+      {
+        label: "Pullfrog provider settings",
+        url: `${getApiUrl()}/console/${params.owner}#billing`,
+      },
+      { label: "GitHub Actions secrets", url: secretsUrl(params) },
+    ],
+  });
 }
