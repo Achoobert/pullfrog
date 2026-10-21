@@ -880,6 +880,19 @@ export const providers = {
         // by 2026-10-15; stored picks land on Big Pickle, as `exo` does.
         fallback: "opencode/big-pickle",
       },
+      // Zen's FREE open-weights preview (listed 2026-10-05), the eighth promo.
+      // Zen's docs: no training, 30-day retention for safety. hidden until a
+      // published release carries the alias.
+      beam: {
+        displayName: "Beam",
+        description: "Preview, free for a limited time",
+        resolve: "opencode/beam-free",
+        effort: ["low", "medium", "high", "xhigh", "max"],
+        // free to run, still gated on the provider's own OPENCODE_API_KEY —
+        // see the big-pickle note above (#1077).
+        isFree: true,
+        hidden: true,
+      },
       // Zen's live free MiMo, and the second free row in a menu that big-pickle
       // was alone in since `mimo-v2-pro-free` lost its model.
       mimo: {
