@@ -27,7 +27,7 @@
     "prepare": "cd .. && husky"
   },
   "devDependencies": {
-    "@actions/core": "^1.11.1",
+    "@actions/core": "^3.0.1",
     "@anthropic-ai/claude-code": "2.1.293",
     "@ark/fs": "0.56.0",
     "@ark/util": "0.56.0",
@@ -40,7 +40,7 @@
     "@openai/codex-sdk": "0.159.2",
     "@opencode-ai/sdk": "1.18.29",
     "@standard-schema/spec": "1.1.0",
-    "@toon-format/toon": "^1.0.0",
+    "@toon-format/toon": "^2.3.1",
     "@types/node": "^24.7.2",
     "@types/semver": "^7.7.1",
     "@types/turndown": "^5.0.5",
@@ -53,7 +53,7 @@
     "esbuild": "^0.25.9",
     "execa": "^9.6.0",
     "fastmcp": "^3.34.0",
-    "file-type": "^21.3.0",
+    "file-type": "^21.3.2",
     "husky": "^9.0.0",
     "opencode-ai": "1.18.29",
     "package-manager-detector": "^1.6.0",
@@ -64,10 +64,10 @@
     "turndown": "^7.2.0",
     "typescript": "^5.9.3",
     "undici": "^7.22.0",
-    "vitest": "^4.0.17",
-    "yaml": "^2.8.2",
+    "vitest": "^4.1.12",
+    "yaml": "^2.8.3",
     "yes": "0.2.7",
-    "zod": "4.3.6"
+    "zod": "4.6.6"
   },
   "repository": {
     "type": "git",
