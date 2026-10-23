@@ -359,7 +359,7 @@ function buildXrepoLearningsReflectionPrompt(filePath: string): string {
  * a reflection-skip mode like IncrementalReview).
  */
 export function buildReflectionPrompt(toolState: ToolState): string | undefined {
-  if (!shouldRunReflection(toolState.selectedMode)) return undefined;
+  if (!shouldRunReflection(toolState.selectedMode) || toolState.learningsLocked) return undefined;
   const parts: string[] = [];
   if (toolState.learningsFilePath) {
     parts.push(buildLearningsReflectionPrompt(toolState.learningsFilePath));

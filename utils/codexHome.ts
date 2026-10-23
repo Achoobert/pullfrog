@@ -56,7 +56,7 @@ import { log } from "./cli.ts";
 import { type CodexAuthBody, parseCodexAuthBody, stringifyCodexAuthBody } from "./codexOAuth.ts";
 import { decodeJwtExpMs } from "./oauthShared.ts";
 import { SUBSCRIPTION_DATA_DIR_STATE } from "./oauthWriteback.ts";
-import { saveSecretState } from "./secretCommands.ts";
+import { maskSecret, saveSecretState } from "./secretCommands.ts";
 import { parseXaiAuthBody, type XaiAuthBody } from "./xaiOAuth.ts";
 
 const CODEX_AUTH_ENV = "CODEX_AUTH_JSON";
@@ -134,6 +134,12 @@ export interface InstalledCodexAuth {
   originalIdToken: string | undefined;
 }
 
+/** the stored blob is masked whole; mask its tokens on their own so a log line carrying one is redacted too */
+function maskTokens(tokens: { access_token: string; refresh_token: string }): void {
+  maskSecret(tokens.access_token);
+  maskSecret(tokens.refresh_token);
+}
+
 /** materialize CODEX_AUTH_JSON from env into a disk path OpenCode reads from.
  * returns null when the env var is absent, malformed, or wrong auth mode, or
  * when this runner cannot host it (`resolveDataHome`) —
@@ -153,6 +159,7 @@ export function installCodexAuth(): InstalledCodexAuth | null {
     return null;
   }
   if (isRejectedChain(body)) return null;
+  maskTokens(body.tokens);
 
   // decode the access_token's JWT exp so opencode trusts the token until
   // its real expiry (no need to refresh on first request). null exp ->
@@ -248,6 +255,7 @@ export function installXaiAuth(): InstalledXaiAuth | null {
     return null;
   }
   if (isXaiRejectedChain(body)) return null;
+  maskTokens(body.tokens);
 
   const xdgDataHome = resolveDataHome();
   if (!xdgDataHome) return null;
@@ -322,6 +330,7 @@ export function installCodexHome(): InstalledCodexHome | null {
     return null;
   }
   if (isRejectedChain(body)) return null;
+  maskTokens(body.tokens);
   if (!body.tokens.id_token) {
     log.warning(
       `» ${CODEX_AUTH_ENV} carries no id_token — the codex CLI cannot load it. ` +

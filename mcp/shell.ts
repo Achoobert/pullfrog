@@ -322,7 +322,7 @@ function shimMount(): string {
  * the actual git working tree root for the .git/* binds. memoized for the
  * lifetime of the action process. */
 let _repoRoot: string | undefined;
-function resolveRepoRoot(): string {
+export function resolveRepoRoot(): string {
   if (_repoRoot) return _repoRoot;
   const fromEnv = process.env.GITHUB_WORKSPACE;
   if (fromEnv) {

@@ -7,6 +7,7 @@ import { log } from "./cli.ts";
 import { mintIdToken, type OctokitWithPlugins, parseRepoContext } from "./github.ts";
 import { isTransientOctokitError } from "./isTransientNetworkError.ts";
 import { type AccountPlan, fetchRunContext, type RepoSettings } from "./runContext.ts";
+import { maskSecret } from "./secretCommands.ts";
 import type { CredentialAccess } from "./subscriptionCredentials.ts";
 
 export interface RunContextData {
@@ -106,6 +107,7 @@ export async function resolveRunContextData(
     }),
   ]);
 
+  if (runContext.apiToken) maskSecret(runContext.apiToken);
   return {
     repo: {
       owner: repoContext.owner,

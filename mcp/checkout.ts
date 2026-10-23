@@ -208,6 +208,7 @@ type EnsureBeforeShaParams = {
   gitToken: string;
   refreshGitToken?: ((stale: string) => Promise<string>) | undefined;
   isShallow: boolean;
+  isFork: boolean;
   signal: AbortSignal;
 };
 
@@ -253,6 +254,9 @@ async function ensureBeforeShaReachable(params: EnsureBeforeShaParams): Promise<
   } catch {
     // not available locally — create a temporary branch to fetch it
   }
+  // never for a fork: a base-repo branch at the fork's commit runs that code in the base
+  // repo's push workflows, with its secrets
+  if (params.isFork) return false;
 
   const tempBranch = `pullfrog/tmp/${params.sha.slice(0, 12)}`;
   try {
@@ -526,6 +530,7 @@ export async function checkoutPrBranch(
         gitToken,
         refreshGitToken,
         isShallow,
+        isFork,
         signal,
       })
     : false;

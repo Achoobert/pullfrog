@@ -68,7 +68,12 @@ import {
   resolvePackageManagerSpec,
 } from "./utils/packageManager.ts";
 import { aggregateUsage, patchWorkflowRunFields } from "./utils/patchWorkflowRunFields.ts";
-import { resolveOutputSchema, resolvePayload, resolvePromptInput } from "./utils/payload.ts";
+import {
+  isOutsideAuthor,
+  resolveOutputSchema,
+  resolvePayload,
+  resolvePromptInput,
+} from "./utils/payload.ts";
 import { resolveTrialFallback, runProxyResolution } from "./utils/proxy.ts";
 import { fetchPreviousSnapshot, persistSummary, seedSummaryFile } from "./utils/prSummary.ts";
 import { handleAgentResult } from "./utils/run.ts";
@@ -354,11 +359,13 @@ export async function main(): Promise<MainResult> {
     );
   }
 
-  // clear OIDC env vars in restricted mode to prevent agent from minting tokens
-  if (payload.shell !== "enabled") {
-    delete process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
-    delete process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
-  }
+  // clear the OIDC request env so the agent can't mint installation tokens itself.
+  // mid-run token refresh uses the `oidcCredentials` snapshot above, not process.env,
+  // so this is safe in every shell tier — including `enabled`, which passes the full
+  // env to shell commands and so would otherwise hand that mint primitive to any
+  // injected command (a full-permission token for the repo, with no body).
+  delete process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+  delete process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
 
   // Proxy decision: mint an OpenRouter key for OSS repos or managed billing
   // accounts. BillingError (402) and TransientError (503) get rendered inside
@@ -717,6 +724,7 @@ export async function main(): Promise<MainResult> {
     // on failure toolState.learningsFilePath stays unset, and downstream
     // consumers (`persistLearnings`, agent harnesses, `resolveInstructions`)
     // all treat undefined as "no learnings affordance this run".
+    toolState.learningsLocked = isOutsideAuthor(payload.event);
     try {
       const learningsPath = await seedLearningsFile({
         tmpdir,

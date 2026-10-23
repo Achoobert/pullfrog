@@ -231,6 +231,9 @@ export interface ToolState {
   xrepoLearningsFilePath?: string;
   xrepoLearningsSeed?: string;
   xrepoLearningsPersistAttempted?: boolean;
+  // a run steered by someone who cannot push here reads learnings but never writes them:
+  // every later run, a maintainer's included, trusts them as context.
+  learningsLocked?: boolean;
   output?: string | undefined;
   usageEntries: AgentUsage[];
   model?: string | undefined;
