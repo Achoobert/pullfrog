@@ -505,7 +505,7 @@ export async function checkoutPrBranch(
       },
       retry: (error, attempt) =>
         PULL_REF_MISSING_PATTERN.test(error instanceof Error ? error.message : String(error))
-          ? yes.delay(PULL_REF_RETRY_DELAYS_MS, attempt)
+          ? yes.backoff(PULL_REF_RETRY_DELAYS_MS, attempt)
           : -1,
       name: `pull/${pr.number}/head fetch`,
     })();

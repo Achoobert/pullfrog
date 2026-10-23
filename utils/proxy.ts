@@ -76,7 +76,7 @@ async function mintProxyKey(ctx: {
       },
       name: "proxy key mint",
       retry: (error, attempt) =>
-        error instanceof TransientError ? yes.delay([1000, 2000], attempt) : -1,
+        error instanceof TransientError ? yes.backoff([1000, 2000], attempt) : -1,
     })();
 
     if (response.status === 402) {
@@ -151,7 +151,7 @@ async function buildProxyTokenHeaders(ctx: {
       run: () => fetchIdTokenFromStash(creds),
       name: "ID token mint",
       retry: (error, attempt) =>
-        isTransientTokenError(error) ? yes.delay([1000, 2000], attempt) : -1,
+        isTransientTokenError(error) ? yes.backoff([1000, 2000], attempt) : -1,
     })();
     return {
       Authorization: `Bearer ${oidcToken}`,

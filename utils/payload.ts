@@ -91,6 +91,14 @@ function isCollaborator(event: PayloadEvent): boolean {
   return perm !== undefined && COLLABORATOR_PERMISSIONS.includes(perm);
 }
 
+/**
+ * a run steered by someone resolved as unable to push here. an absent permission
+ * is a run no outside author steers (CI fix, a review bot on Pullfrog's own PR).
+ */
+export function isOutsideAuthor(event: PayloadEvent): boolean {
+  return event.authorPermission !== undefined && !isCollaborator(event);
+}
+
 // inputs schema - action inputs from core.getInput()
 // note: tool permissions use .or("undefined") because getInput() || undefined
 // explicitly sets the property to undefined when empty, which is different from
@@ -356,6 +364,13 @@ export function resolvePayload(
     resolvedShell = "restricted";
   }
 
+  // a run steered by someone who cannot push here does not push for them. an
+  // absent permission is a run no outside author steers (CI fix, a review bot on
+  // Pullfrog's own PR), so only a resolved non-collaborator role clamps.
+  const push = isOutsideAuthor(event)
+    ? "disabled"
+    : (inputs.push ?? repoSettings.push ?? "restricted");
+
   // build payload - precedence: inputs > repoSettings > fallbacks
   // note: modes are NOT in payload - they come from repoSettings in main()
   return {
@@ -387,7 +402,7 @@ export function resolvePayload(
     codexArm: jsonPayload?.codexArm,
 
     // permissions: inputs > repoSettings > fallbacks
-    push: inputs.push ?? repoSettings.push ?? "restricted",
+    push,
     shell: resolvedShell,
 
     // the `pullfrog` run-lifecycle check. ON by default — the whole point is that a PR

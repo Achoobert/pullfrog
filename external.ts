@@ -205,7 +205,7 @@ interface BasePayloadEvent {
   };
   comment_ids?: number[] | "all";
   /** permission level of the user who triggered this event */
-  authorPermission?: AuthorPermission;
+  authorPermission?: AuthorPermission | undefined;
   /** when true, runs silently without progress comments (e.g., auto-labeling) */
   silent?: boolean;
   [key: string]: any;

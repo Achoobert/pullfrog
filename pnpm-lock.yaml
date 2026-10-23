@@ -24,7 +24,7 @@ importers:
         specifier: ^1.2.0
         version: 1.8.1
       '@modelcontextprotocol/sdk':
-        specifier: ^1.26.0
+        specifier: ^1.32.0
         version: 1.32.1(zod@4.3.6)
       '@octokit/plugin-throttling':
         specifier: ^11.0.3
@@ -126,8 +126,8 @@ importers:
         specifier: ^2.8.2
         version: 2.9.1
       yes:
-        specifier: 0.2.4
-        version: 0.2.4(typescript@5.9.3)
+        specifier: 0.2.7
+        version: 0.2.7(typescript@5.9.3)
       zod:
         specifier: 4.3.6
         version: 4.3.6
@@ -1286,10 +1286,6 @@ packages:
   lodash.truncate@4.4.2:
     resolution: {integrity: sha512-jttmRe7bRse52OsWIMDLaXxWqRAmtIUccAQ3garviCqJjafXOfNMO0yMfNpdD6zbGaTU0P5Nz7e7gAT6cKmJRw==}
 
-  lru-cache@11.5.3:
-    resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
-    engines: {node: 20 || >=22}
-
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -1871,9 +1867,9 @@ packages:
     resolution: {integrity: sha512-9OpKOLeaoNFecEp7P6iYbzze/5CqWoH7N3SMs/6y1XF4nMvFMspEGZzJ6uFi9MmQwXhyzqYoSEKO3tvA3Z/o2w==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
 
-  yes@0.2.4:
-    resolution: {integrity: sha512-/5cLSX2oP/+ePb8PqZuO4TgDwwMG99z33qbG7PrqkppAbNnV4fzD/vKddGa0ogApA2OymMOGqvbGEvodMr3VHg==}
-    engines: {node: '>=24'}
+  yes@0.2.7:
+    resolution: {integrity: sha512-Anc/wequxObCuGDxNTpGFPKunzvNqPGcjA+G51kf6fy9yjiuV1yXZ6c+UhXxLyDv4kYgBOgHKNdxOyy0O6N8Sw==}
+    engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
       typescript: '>=5.4'
@@ -2933,8 +2929,6 @@ snapshots:
 
   lodash.truncate@4.4.2: {}
 
-  lru-cache@11.5.3: {}
-
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -3416,9 +3410,8 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 22.0.0
 
-  yes@0.2.4(typescript@5.9.3):
+  yes@0.2.7(typescript@5.9.3):
     dependencies:
-      lru-cache: 11.5.3
       typescript: 5.9.3
 
   yoctocolors@2.2.0: {}

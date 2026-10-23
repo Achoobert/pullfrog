@@ -84,7 +84,7 @@ export async function patchWorkflowRunFields(
   if (Number.isInteger(runAttempt) && runAttempt >= 1) body.runAttempt = runAttempt;
   try {
     await yes.mutation({
-      run: async (patch: typeof body, opCtx: yes.ctx) => {
+      run: async (patch: typeof body, opCtx: yes.Context) => {
         const response = await apiFetch({
           path: `/api/workflow-run/${ctx.runId}`,
           method: "PATCH",
@@ -107,7 +107,7 @@ export async function patchWorkflowRunFields(
       // only retry transient network errors; explicit HTTP failures throw
       // a status-bearing message and should fail fast.
       retry: (error, attempt) =>
-        isTransientNetworkError(error) ? yes.delay([2000, 4000], attempt) : -1,
+        isTransientNetworkError(error) ? yes.backoff([2000, 4000], attempt) : -1,
       timeout: 10_000,
       name: "patchWorkflowRunFields",
     })(body);

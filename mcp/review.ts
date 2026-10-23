@@ -802,7 +802,7 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
                 : createReviewWithStrandedRecovery(ctx, params),
             retry: (error, attempt) =>
               isTransientReviewError(error)
-                ? yes.delay(TRANSIENT_REVIEW_RETRY_DELAYS_MS, attempt)
+                ? yes.backoff(TRANSIENT_REVIEW_RETRY_DELAYS_MS, attempt)
                 : -1,
             name: "review submission",
           })();

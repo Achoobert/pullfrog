@@ -94,7 +94,7 @@ export async function resolveRunContextData(
       run: () => params.octokit.repos.get({ owner: repoContext.owner, repo: repoContext.name }),
       name: "repos.get",
       retry: (error, attempt) =>
-        isTransientOctokitError(error) ? yes.delay([100, 500], attempt) : -1,
+        isTransientOctokitError(error) ? yes.backoff([100, 500], attempt) : -1,
     })(),
     fetchRunContext({
       token: params.token,

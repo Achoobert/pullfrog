@@ -125,7 +125,7 @@ export function commercialPaywallBody(params: {
 /**
  * commercial-gate copy for action runs, linked to the account billing card.
  *
- * if this fires on a `pullfrog/preview-*` repo it is an infrastructure bug, not
+ * if this fires on a `PullfrogDev/preview-*` repo it is an infrastructure bug, not
  * a billing state — those repos have no real billing state to refuse. the
  * original cause was the gate comparing the subscription's originating host
  * with strict equality, which no preview could satisfy against a cloned

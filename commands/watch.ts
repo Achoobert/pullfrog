@@ -135,7 +135,7 @@ export async function runCli(input: { args: string[]; prog: string; showHelp: bo
     run: (input: PrTarget & { token: string; cursor: string }) => pollPrEvents(input),
     name: "pr-events poll",
     retry: (error, attempt) =>
-      isTerminal(error) ? -1 : yes.delay([1000, 2000, 5000, 10_000, 15_000], attempt),
+      isTerminal(error) ? -1 : yes.backoff([1000, 2000, 5000, 10_000, 15_000], attempt),
   });
 
   // daemon loop — the loop is the whole command. the query smooths transient

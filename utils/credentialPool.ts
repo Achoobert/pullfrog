@@ -46,7 +46,7 @@ function saveReceipts() {
 const select = yes.mutation({
   run: async (
     input: { access: CredentialAccess; candidate: CredentialCandidate },
-    ctx: yes.ctx
+    ctx: yes.Context
   ) => {
     const response = await apiFetch({
       path: "/api/runtime/credentials",
@@ -68,7 +68,7 @@ const select = yes.mutation({
     error.cause >= 400 &&
     error.cause < 500
       ? -1
-      : yes.delay([250, 1000], attempt),
+      : yes.backoff([250, 1000], attempt),
   timeout: 35_000,
 });
 

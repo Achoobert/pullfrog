@@ -164,7 +164,7 @@ export async function autoMergeAfterApprove(ctx: ToolContext): Promise<void> {
         }),
       name: "enablePullRequestAutoMerge",
       retry: (error, attempt) =>
-        isTransientOctokitError(error) ? yes.delay([500, 2000], attempt) : -1,
+        isTransientOctokitError(error) ? yes.backoff([500, 2000], attempt) : -1,
     })();
     log.info(`autoMerge: pr=#${pullNumber} @ ${headSha.slice(0, 7)} → native auto-merge enabled`);
     await comment(

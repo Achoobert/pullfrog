@@ -121,7 +121,7 @@ async function dispatchFollowUpReReview(ctx: ToolContext, reviewedSha: string): 
       }),
     name: "reReviewDispatch",
     retry: (error, attempt) =>
-      isTransientOctokitError(error) ? yes.delay([500, 2000], attempt) : -1,
+      isTransientOctokitError(error) ? yes.backoff([500, 2000], attempt) : -1,
   })();
 }
 

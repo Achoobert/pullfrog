@@ -688,8 +688,8 @@ export const providers = {
       "kimi-k3": {
         displayName: "Kimi K3",
         resolve: "opencode/kimi-k3",
-        // Zen publishes a single rung for K3 where OpenRouter publishes three.
-        effort: ["max"],
+        // Zen published a single rung (`max`) for K3 until 2026-10-23; it now matches OpenRouter.
+        effort: ["low", "high", "max"],
         openRouterEffort: ["none", "low", "high", "max"],
         openRouterResolve: "openrouter/moonshotai/kimi-k3",
         subagentModel: "kimi-k2",
@@ -735,10 +735,11 @@ export const providers = {
       // Zen began listing Qwen's Max and Flash tiers in late 2026-09 (Max on
       // 09-25); until then `opencode-go` was the only Qwen route, so a Zen
       // subscriber without Go had none. Plus is still Go-only. Zen's Max entry
-      // publishes a reasoning toggle but no effort rungs.
+      // published a reasoning toggle but no effort rungs until 2026-10-23.
       "qwen-max": {
         displayName: "Qwen Max",
         resolve: "opencode/qwen3.8-max",
+        effort: ["low", "medium", "xhigh"],
         openRouterEffort: ["minimal", "low", "medium", "high", "xhigh"],
         openRouterResolve: "openrouter/qwen/qwen3.8-max-0902",
       },
@@ -834,6 +835,9 @@ export const providers = {
         // free to run, still gated on the provider's own OPENCODE_API_KEY —
         // see the big-pickle note above (#1077).
         isFree: true,
+        // Zen dropped the free id from `/v1/models` and models.dev deprecated it
+        // by 2026-10-23, with no other LongCat on Zen; stored picks land on Big Pickle.
+        fallback: "opencode/big-pickle",
       },
       // Zen's FREE stealth preview (listed 2026-10-01), the fifth promo. Zen's
       // docs: data may be used to improve the model during the free period.
